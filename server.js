@@ -99,7 +99,8 @@ mkdirSync(join(VIDEO_DIR, 'presentations'), { recursive: true });
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const scope = req.body.scope || 'private';
-    const dir = scope === 'shared'
+    const isSharedRoute = req.path === '/api/videos/shared';
+    const dir = (scope === 'shared' || isSharedRoute)
       ? join(VIDEO_DIR, 'shared')
       : join(VIDEO_DIR, 'presentations', req.params.slug || 'temp');
     mkdirSync(dir, { recursive: true });
@@ -312,6 +313,16 @@ app.get('/api/presentations/:slug/videos', (req, res) => {
 // List shared videos only (admin)
 app.get('/api/videos/shared', requireAdmin, (req, res) => {
   res.json(db.prepare("SELECT * FROM videos WHERE scope='shared' ORDER BY created_at DESC").all());
+});
+
+// Upload shared video directly (admin)
+app.post('/api/videos/shared', requireAdmin, upload.single('video'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file' });
+  const result = db.prepare(`
+    INSERT INTO videos (filename, original_name, size, scope, presentation_id, uploaded_by)
+    VALUES (?, ?, ?, 'shared', NULL, ?)
+  `).run(req.file.filename, req.file.originalname, req.file.size, req.session.user?.id);
+  res.json({ ok: true, id: result.lastInsertRowid, filename: req.file.filename });
 });
 
 // Upload video
