@@ -47,7 +47,17 @@ html, body {
   overflow: hidden;
   /* sized by JS to maintain 16:9 */
 }
-
+.editable-text {
+  cursor: text;
+  outline: none;
+  border-radius: 3px;
+  transition: background 0.15s, outline 0.15s;
+  min-width: 20px;
+  min-height: 1em;
+}
+.editable-text:hover { background: rgba(242,101,34,0.15) !important; outline: 1.5px dashed rgba(242,101,34,0.5) !important; }
+.editable-text:focus { background: rgba(242,101,34,0.1) !important; outline: 2px solid rgba(242,101,34,0.9) !important; }
+#slide-frame.edit-mode { transform: scale(0.94); transform-origin: center center; transition: transform 0.2s; }
 /* ── VIDEO SLIDE ── */
 #video-slide {
   position: absolute;
@@ -444,10 +454,9 @@ html, body {
     </div>
 
     <!-- TITLE fields -->
+    <!-- TITLE: logo only — text edited inline on slide -->
     <div class="ep-group" id="epg-title">
-      <div class="ep-field"><label>Main title</label><input type="text" id="ep-title" placeholder="e.g. You Make the Call"></div>
-      <div class="ep-field"><label>Eyebrow label <span style="opacity:.5;font-weight:400;">(top small text)</span></label><input type="text" id="ep-eyebrow" placeholder="e.g. IHSA · Boys Volleyball"></div>
-      <div class="ep-field"><label>Subtitle <span style="opacity:.5;font-weight:400;">(bottom)</span></label><textarea id="ep-subtitle" placeholder="e.g. NFHS Rules Scenarios" style="height:52px;"></textarea></div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
       <div class="ep-field" id="ep-logo-field">
         <label>Logo</label>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -462,13 +471,15 @@ html, body {
       </div>
     </div>
 
-    <!-- VIDEO fields -->
+    <!-- VIDEO: structural fields only — text edited inline -->
     <div class="ep-group" id="epg-video">
-      <div class="ep-field"><label>Scenario label <span style="opacity:.5;font-weight:400;">(orange panel)</span></label><input type="text" id="ep-vid-title" placeholder="e.g. Scenario 1"></div>
-      <div class="ep-field"><label>Left panel text <span style="opacity:.5;font-weight:400;">(big stacked)</span></label><textarea id="ep-vid-panel" placeholder="e.g. You&#10;Make&#10;the&#10;Call" style="height:80px;"></textarea></div>
-      <div class="ep-field"><label>Situation eyebrow <span style="opacity:.5;font-weight:400;">(label above body)</span></label><input type="text" id="ep-vid-eyebrow" placeholder="e.g. Situation"></div>
-      <div class="ep-field"><label>Situation body</label><textarea id="ep-vid-body" placeholder="Describe the play..." style="height:80px;"></textarea></div>
-      <div class="ep-field"><label>Call-to-action badge</label><input type="text" id="ep-vid-cta" placeholder="e.g. What&#39;s your call?"></div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
+      <!-- Hidden inputs to hold values for save — populated from slide.data -->
+      <input type="hidden" id="ep-vid-title">
+      <input type="hidden" id="ep-vid-panel">
+      <input type="hidden" id="ep-vid-eyebrow">
+      <input type="hidden" id="ep-vid-body">
+      <input type="hidden" id="ep-vid-cta">
       <div class="ep-field">
         <label style="text-transform:none;font-size:12px;font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;">
           <input type="checkbox" id="ep-vid-video-first" style="width:auto;accent-color:var(--gold);">
@@ -488,14 +499,15 @@ html, body {
       </div>
     </div>
 
-    <!-- REVEAL fields -->
+    <!-- REVEAL: text edited inline on slide -->
     <div class="ep-group" id="epg-reveal">
-      <div class="ep-field"><label>Header label <span style="opacity:.5;font-weight:400;">(small top text)</span></label><input type="text" id="ep-rev-eyebrow" placeholder="e.g. The Call · Answer"></div>
-      <div class="ep-field"><label>Ruling <span style="opacity:.5;font-weight:400;">(big white text in band)</span></label><input type="text" id="ep-rev-ruling" placeholder="e.g. FAULT — FOUR HITS"></div>
-      <div class="ep-field"><label>Rule citation</label><input type="text" id="ep-rev-rule" placeholder="e.g. NFHS Rule 9-1-2"></div>
-      <div class="ep-field"><label>Explanation</label><textarea id="ep-rev-body" placeholder="Rule explanation..." style="height:80px;"></textarea></div>
-      <div class="ep-field"><label>Officials&#39; note label</label><input type="text" id="ep-rev-notelabel" placeholder="e.g. Officials&#39; Note"></div>
-      <div class="ep-field"><label>Officials&#39; note text</label><textarea id="ep-rev-note" placeholder="Mechanic reminder..." style="height:60px;"></textarea></div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
+      <input type="hidden" id="ep-rev-eyebrow">
+      <input type="hidden" id="ep-rev-ruling">
+      <input type="hidden" id="ep-rev-rule">
+      <input type="hidden" id="ep-rev-body">
+      <input type="hidden" id="ep-rev-notelabel">
+      <input type="hidden" id="ep-rev-note">
     </div>
 
     <!-- EMBED fields -->
@@ -508,38 +520,24 @@ html, body {
       </div>
     </div>
 
-    <!-- RULE CHANGE fields -->
     <div class="ep-group" id="epg-rulechange">
-      <div class="ep-field"><label>Slide label</label><input type="text" id="ep-rc-title" placeholder="e.g. Rule Change — Libero"></div>
-      <div class="ep-field"><label>Rule citation</label><input type="text" id="ep-rc-rule" placeholder="e.g. NFHS Rule 7-4-1"></div>
-      <div class="ep-field"><label>Section heading</label><input type="text" id="ep-rc-heading" placeholder="e.g. Libero Replacement"></div>
-      <div class="ep-field"><label>Previous rule <span style="opacity:.5;font-weight:400;">(left column)</span></label><textarea id="ep-rc-old" placeholder="What the rule said before..." style="height:70px;"></textarea></div>
-      <div class="ep-field"><label>New rule <span style="opacity:.5;font-weight:400;">(right column)</span></label><textarea id="ep-rc-new" placeholder="What the rule says now..." style="height:70px;"></textarea></div>
-      <div class="ep-field"><label>Note <span style="opacity:.5;font-weight:400;">(optional bottom bar)</span></label><input type="text" id="ep-rc-note" placeholder="e.g. Effective 2025-26 season"></div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
+      <input type="hidden" id="ep-rc-title"><input type="hidden" id="ep-rc-rule"><input type="hidden" id="ep-rc-heading">
+      <input type="hidden" id="ep-rc-old"><input type="hidden" id="ep-rc-new"><input type="hidden" id="ep-rc-note">
     </div>
 
-    <!-- POINTS OF EMPHASIS fields -->
     <div class="ep-group" id="epg-emphasis">
-      <div class="ep-field"><label>Slide label</label><input type="text" id="ep-em-title" placeholder="e.g. 2025-26 Points of Emphasis"></div>
-      <div class="ep-field"><label>Header</label><input type="text" id="ep-em-header" placeholder="e.g. Points of Emphasis"></div>
-      <div class="ep-field"><label>Season / subtitle</label><input type="text" id="ep-em-season" placeholder="e.g. 2025–26 IHSA Boys Volleyball"></div>
-      <div class="ep-field"><label>Item 1</label><input type="text" id="ep-em-1" placeholder=""></div>
-      <div class="ep-field"><label>Item 1 detail</label><input type="text" id="ep-em-1d" placeholder="optional detail line"></div>
-      <div class="ep-field"><label>Item 2</label><input type="text" id="ep-em-2" placeholder=""></div>
-      <div class="ep-field"><label>Item 2 detail</label><input type="text" id="ep-em-2d" placeholder=""></div>
-      <div class="ep-field"><label>Item 3</label><input type="text" id="ep-em-3" placeholder=""></div>
-      <div class="ep-field"><label>Item 3 detail</label><input type="text" id="ep-em-3d" placeholder=""></div>
-      <div class="ep-field"><label>Item 4</label><input type="text" id="ep-em-4" placeholder=""></div>
-      <div class="ep-field"><label>Item 4 detail</label><input type="text" id="ep-em-4d" placeholder=""></div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
+      <input type="hidden" id="ep-em-title"><input type="hidden" id="ep-em-header"><input type="hidden" id="ep-em-season">
+      <input type="hidden" id="ep-em-1"><input type="hidden" id="ep-em-1d"><input type="hidden" id="ep-em-2"><input type="hidden" id="ep-em-2d">
+      <input type="hidden" id="ep-em-3"><input type="hidden" id="ep-em-3d"><input type="hidden" id="ep-em-4"><input type="hidden" id="ep-em-4d">
     </div>
 
     <!-- MECHANICS fields -->
     <div class="ep-group" id="epg-mechanics">
-      <div class="ep-field"><label>Slide label</label><input type="text" id="ep-mech-title" placeholder="e.g. R1 Net Fault Coverage"></div>
-      <div class="ep-field"><label>Header</label><input type="text" id="ep-mech-header" placeholder="e.g. Mechanics — Service Coverage"></div>
-      <div class="ep-field"><label>Subtitle</label><input type="text" id="ep-mech-sub" placeholder="e.g. First Referee Responsibilities"></div>
-      <div class="ep-field"><label>Key points <span style="opacity:.5;font-weight:400;">(one per line)</span></label><textarea id="ep-mech-points" placeholder="Watch for foot fault at service line&#10;Cover net contact near antenna&#10;Signal antennae violations immediately" style="height:90px;"></textarea></div>
-      <div class="ep-field"><label>Bottom note</label><input type="text" id="ep-mech-note" placeholder="e.g. Communicate with R2 on close calls"></div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
+      <input type="hidden" id="ep-mech-title"><input type="hidden" id="ep-mech-header"><input type="hidden" id="ep-mech-sub">
+      <input type="hidden" id="ep-mech-points"><input type="hidden" id="ep-mech-note">
       <div class="ep-field">
         <label>Diagram image <span style="opacity:.5;font-weight:400;">(replaces placeholder)</span></label>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -554,30 +552,22 @@ html, body {
       </div>
     </div>
 
-    <!-- DISCUSSION fields -->
     <div class="ep-group" id="epg-discussion">
-      <div class="ep-field"><label>Slide label</label><input type="text" id="ep-disc-title" placeholder="e.g. Group Discussion"></div>
-      <div class="ep-field"><label>Question</label><textarea id="ep-disc-q" placeholder="e.g. How do you handle a coach who repeatedly questions line calls?" style="height:80px;"></textarea></div>
-      <div class="ep-field"><label>Context / setup <span style="opacity:.5;font-weight:400;">(optional smaller text below)</span></label><textarea id="ep-disc-ctx" placeholder="Optional background or scenario context..." style="height:60px;"></textarea></div>
-      <div class="ep-field"><label>Time prompt <span style="opacity:.5;font-weight:400;">(e.g. "5 minutes")</span></label><input type="text" id="ep-disc-time" placeholder="e.g. 5 minutes"></div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
+      <input type="hidden" id="ep-disc-title"><input type="hidden" id="ep-disc-q"><input type="hidden" id="ep-disc-ctx">
+      <div class="ep-field"><label>Time prompt</label><input type="text" id="ep-disc-time" placeholder="e.g. 5 minutes"></div>
     </div>
 
-    <!-- CASEBOOK fields -->
     <div class="ep-group" id="epg-casebook">
-      <div class="ep-field"><label>Slide label</label><input type="text" id="ep-cb-title" placeholder="e.g. Casebook 9.1.1 Situation A"></div>
-      <div class="ep-field"><label>Citation</label><input type="text" id="ep-cb-cite" placeholder="e.g. NFHS Casebook 9.1.1 Sit. A"></div>
-      <div class="ep-field"><label>Situation <span style="opacity:.5;font-weight:400;">(left column)</span></label><textarea id="ep-cb-sit" placeholder="Describe the situation..." style="height:90px;"></textarea></div>
-      <div class="ep-field"><label>Ruling <span style="opacity:.5;font-weight:400;">(right column)</span></label><textarea id="ep-cb-ruling" placeholder="The ruling is..." style="height:90px;"></textarea></div>
-      <div class="ep-field"><label>Key principle</label><input type="text" id="ep-cb-principle" placeholder="e.g. Attack hit must be entirely above the net"></div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
+      <input type="hidden" id="ep-cb-title"><input type="hidden" id="ep-cb-cite">
+      <input type="hidden" id="ep-cb-sit"><input type="hidden" id="ep-cb-ruling"><input type="hidden" id="ep-cb-principle">
     </div>
 
-    <!-- STAT fields -->
     <div class="ep-group" id="epg-stat">
-      <div class="ep-field"><label>Slide label</label><input type="text" id="ep-st-title" placeholder="e.g. Did You Know?"></div>
-      <div class="ep-field"><label>Big number / stat</label><input type="text" id="ep-st-stat" placeholder="e.g. 73%"></div>
-      <div class="ep-field"><label>Stat label</label><input type="text" id="ep-st-label" placeholder="e.g. of officials missed this call in 2024"></div>
-      <div class="ep-field"><label>Supporting text</label><textarea id="ep-st-body" placeholder="Additional context or explanation..." style="height:70px;"></textarea></div>
-      <div class="ep-field"><label>Source <span style="opacity:.5;font-weight:400;">(optional)</span></label><input type="text" id="ep-st-source" placeholder="e.g. IHSA Officials Survey 2024"></div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
+      <input type="hidden" id="ep-st-title"><input type="hidden" id="ep-st-stat"><input type="hidden" id="ep-st-label">
+      <input type="hidden" id="ep-st-body"><input type="hidden" id="ep-st-source">
     </div>
 
   </div>
@@ -966,17 +956,18 @@ function showSlide(idx) {
   currentSlide = Math.max(0, Math.min(slides.length - 1, idx));
   const slide = slides[currentSlide];
   const isVideo = showingVideo && slide.type === 'video';
+  const frame = document.getElementById('slide-frame');
 
-  document.getElementById('video-slide').classList.toggle('active', isVideo || (showingVideo && slide.type !== 'video' && slide.type !== 'reveal'));
-  const showContent = !isVideo;
-  document.getElementById('content-slide').classList.toggle('active', showContent);
-  document.getElementById('video-slide').classList.toggle('active', !showContent);
+  document.getElementById('video-slide').classList.toggle('active', isVideo);
+  document.getElementById('content-slide').classList.toggle('active', !isVideo);
+  frame.classList.toggle('edit-mode', !isVideo);
 
-  if (showContent) {
+  if (!isVideo) {
     const inner = document.getElementById('slide-inner');
-    inner.style.width = document.getElementById('slide-frame').style.width;
-    inner.style.height = document.getElementById('slide-frame').style.height;
+    inner.style.width = frame.style.width;
+    inner.style.height = frame.style.height;
     renderSlideContent(slide, inner);
+    makeEditable(inner, slide);
   }
 
   document.getElementById('tb-slide-indicator').textContent = `${currentSlide+1} / ${slides.length}`;
@@ -986,22 +977,159 @@ function showSlide(idx) {
 }
 
 /* Switching between video and slide view for current position */
+// ── INLINE EDITING ──────────────────────────────────────────
+function makeEditable(container, slide) {
+  const d = slide.data || {};
+  const sc = parseFloat(container.style.width) / 960;
+
+  // Map of data keys to their rendered elements
+  // We find elements by their text content matching the data values
+  // and tag them with data-field for the save handler
+  const fieldMap = buildFieldMap(slide);
+
+  container.querySelectorAll('div, span').forEach(el => {
+    const text = el.textContent.trim();
+    if (!text || el.children.length > 0) return; // skip containers, only leaf text nodes
+    if (el.style.width && parseFloat(el.style.width) < 20) return; // skip tiny decorative elements
+
+    // Find which field this element maps to
+    const field = fieldMap[text];
+    if (!field) return;
+
+    el.classList.add('editable-text');
+    el.contentEditable = 'true';
+    el.dataset.field = field;
+    el.spellcheck = false;
+
+    el.addEventListener('focus', () => {
+      // Select all on focus for easy replacement
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+
+    el.addEventListener('blur', () => {
+      const newVal = el.innerText;
+      writeField(slide, field, newVal);
+      // Update slide title in panel if title changed
+      if (['title', 'vidTitle', 'revRuling', 'embTitle', 'rcTitle', 'emTitle', 'mechTitle', 'discTitle', 'cbTitle', 'stTitle'].includes(field)) {
+        slide.title = newVal;
+        document.getElementById('tb-slide-title').textContent = newVal;
+      }
+      saveSlides();
+    });
+
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { el.blur(); }
+      // Allow Enter for multiline, block it for single-line fields
+      const multiline = ['subtitle', 'vidBody', 'panelText', 'revBody', 'rcOld', 'rcNew', 'mechPoints', 'discQ', 'discCtx', 'cbSit', 'cbRuling', 'stBody'];
+      if (e.key === 'Enter' && !multiline.includes(field)) {
+        e.preventDefault();
+        el.blur();
+      }
+    });
+  });
+}
+
+function buildFieldMap(slide) {
+  const d = slide.data || {};
+  const map = {};
+  const add = (val, key) => { if (val && val.trim()) map[val.trim()] = key; };
+
+  if (slide.type === 'title') {
+    add(d.eyebrow || 'IHSA \u00b7 Boys Volleyball', 'eyebrow');
+    add(d.title || slide.title, 'title');
+    add(d.subtitle || slide.body, 'subtitle');
+  } else if (slide.type === 'video') {
+    add(d.vidTitle || slide.title, 'vidTitle');
+    add(d.panelText || 'You\nMake\nthe\nCall', 'panelText');
+    add(d.vidEyebrow || 'Situation', 'vidEyebrow');
+    add(d.vidBody || slide.body, 'vidBody');
+    add(d.vidCta || "What's your call?", 'vidCta');
+  } else if (slide.type === 'reveal') {
+    add(d.revEyebrow || 'The Call \u00b7 Answer', 'revEyebrow');
+    add(d.revRuling || slide.title, 'revRuling');
+    add(d.revRule || slide.rule || 'NFHS Rule', 'revRule');
+    add(d.revBody || slide.body, 'revBody');
+    add(d.revNoteLabel || "Officials' Note", 'revNoteLabel');
+    add(d.revNote || 'Add a key takeaway for officials here.', 'revNote');
+  } else if (slide.type === 'rulechange') {
+    add(d.rcHeading || slide.title, 'rcHeading');
+    add(d.rcRule || '', 'rcRule');
+    add(d.rcOld || '', 'rcOld');
+    add(d.rcNew || '', 'rcNew');
+    add(d.rcNote || '', 'rcNote');
+  } else if (slide.type === 'emphasis') {
+    add(d.emHeader || 'Points of Emphasis', 'emHeader');
+    add(d.emSeason || 'IHSA Boys Volleyball', 'emSeason');
+    ['em1','em1d','em2','em2d','em3','em3d','em4','em4d'].forEach(k => add(d[k], k));
+  } else if (slide.type === 'mechanics') {
+    add(d.mechHeader || slide.title, 'mechHeader');
+    add(d.mechSub || '', 'mechSub');
+    add(d.mechNote || '', 'mechNote');
+    if (d.mechPoints) d.mechPoints.split('\n').forEach((pt, i) => add(pt.trim(), 'mechPoints'));
+  } else if (slide.type === 'discussion') {
+    add(d.discQ || 'Discussion question goes here.', 'discQ');
+    add(d.discCtx || '', 'discCtx');
+    add(d.discTime || '', 'discTime');
+  } else if (slide.type === 'casebook') {
+    add(d.cbCite || '', 'cbCite');
+    add(d.cbSit || '', 'cbSit');
+    add(d.cbRuling || '', 'cbRuling');
+    add(d.cbPrinciple || '', 'cbPrinciple');
+  } else if (slide.type === 'stat') {
+    add(d.stTitle || slide.title, 'stTitle');
+    add(d.stStat || '\u2014', 'stStat');
+    add(d.stLabel || '', 'stLabel');
+    add(d.stBody || '', 'stBody');
+    add(d.stSource || '', 'stSource');
+  } else if (slide.type === 'embed') {
+    add(d.embHeader || slide.title, 'embHeader');
+  }
+  return map;
+}
+
+function writeField(slide, field, value) {
+  if (!slide.data) slide.data = {};
+  // Special case: mechPoints collects all lines
+  if (field === 'mechPoints') {
+    // rebuild from all editable mechPoints elements
+    const container = document.getElementById('slide-inner');
+    const pts = [];
+    container.querySelectorAll('[data-field="mechPoints"]').forEach(el => {
+      if (el.innerText.trim()) pts.push(el.innerText.trim());
+    });
+    slide.data.mechPoints = pts.join('\n');
+    return;
+  }
+  slide.data[field] = value;
+  // Keep top-level slide fields in sync
+  if (field === 'title' || field === 'vidTitle' || field === 'revRuling') slide.title = value;
+  if (field === 'revRule') slide.rule = value;
+}
+
 function setView(wantVideo) {
   const slide = slides[currentSlide];
   if (slide.type !== 'video') wantVideo = false;
   showingVideo = wantVideo;
   const videoSlide = document.getElementById('video-slide');
   const contentSlide = document.getElementById('content-slide');
+  const frame = document.getElementById('slide-frame');
   if (wantVideo) {
     videoSlide.classList.add('active');
     contentSlide.classList.remove('active');
+    frame.classList.remove('edit-mode');
   } else {
     videoSlide.classList.remove('active');
     contentSlide.classList.add('active');
+    frame.classList.add('edit-mode');
     const inner = document.getElementById('slide-inner');
     inner.style.width = document.getElementById('slide-frame').style.width;
     inner.style.height = document.getElementById('slide-frame').style.height;
     renderSlideContent(slide, inner);
+    makeEditable(inner, slide);
   }
   document.getElementById('tb-slide-title').textContent = slide.title;
 }
@@ -1190,69 +1318,19 @@ function populateEditor() {
   showGroups(s.type);
 
   if (s.type === 'title') {
-    g('ep-title').value = d.title || s.title || '';
-    g('ep-eyebrow').value = d.eyebrow || 'IHSA · Boys Volleyball';
-    g('ep-subtitle').value = d.subtitle || s.body || '';
     updateLogoUI();
   } else if (s.type === 'video') {
-    g('ep-vid-title').value = d.vidTitle || s.title || '';
-    g('ep-vid-panel').value = d.panelText || 'You\nMake\nthe\nCall';
-    g('ep-vid-eyebrow').value = d.vidEyebrow || 'Situation';
-    g('ep-vid-body').value = d.vidBody || s.body || '';
-    g('ep-vid-cta').value = d.vidCta || "What's your call?";
     g('ep-vid-video-first').checked = d.vidOrder !== 'situation';
     g('ep-vid-show-text').checked = d.vidShowText !== false;
     populateClipPicker(d.vidClipUrl || '');
-  } else if (s.type === 'reveal') {
-    g('ep-rev-eyebrow').value = d.revEyebrow || 'The Call · Answer';
-    g('ep-rev-ruling').value = d.revRuling || s.title || '';
-    g('ep-rev-rule').value = d.revRule || s.rule || '';
-    g('ep-rev-body').value = d.revBody || s.body || '';
-    g('ep-rev-notelabel').value = d.revNoteLabel || "Officials' Note";
-    g('ep-rev-note').value = d.revNote || '';
   } else if (s.type === 'embed') {
     g('ep-emb-title').value = d.embTitle || s.title || '';
     g('ep-emb-header').value = d.embHeader || s.title || '';
     g('ep-emb-html').value = d.embHtml || '';
-  } else if (s.type === 'rulechange') {
-    g('ep-rc-title').value = d.rcTitle || s.title || '';
-    g('ep-rc-rule').value = d.rcRule || '';
-    g('ep-rc-heading').value = d.rcHeading || '';
-    g('ep-rc-old').value = d.rcOld || '';
-    g('ep-rc-new').value = d.rcNew || '';
-    g('ep-rc-note').value = d.rcNote || '';
-  } else if (s.type === 'emphasis') {
-    g('ep-em-title').value = d.emTitle || s.title || '';
-    g('ep-em-header').value = d.emHeader || 'Points of Emphasis';
-    g('ep-em-season').value = d.emSeason || 'IHSA Boys Volleyball';
-    g('ep-em-1').value = d.em1 || ''; g('ep-em-1d').value = d.em1d || '';
-    g('ep-em-2').value = d.em2 || ''; g('ep-em-2d').value = d.em2d || '';
-    g('ep-em-3').value = d.em3 || ''; g('ep-em-3d').value = d.em3d || '';
-    g('ep-em-4').value = d.em4 || ''; g('ep-em-4d').value = d.em4d || '';
-  } else if (s.type === 'mechanics') {
-    g('ep-mech-title').value = d.mechTitle || s.title || '';
-    g('ep-mech-header').value = d.mechHeader || '';
-    g('ep-mech-sub').value = d.mechSub || '';
-    g('ep-mech-points').value = d.mechPoints || '';
-    g('ep-mech-note').value = d.mechNote || '';
-    updateMechImgUI();
   } else if (s.type === 'discussion') {
-    g('ep-disc-title').value = d.discTitle || s.title || '';
-    g('ep-disc-q').value = d.discQ || '';
-    g('ep-disc-ctx').value = d.discCtx || '';
     g('ep-disc-time').value = d.discTime || '';
-  } else if (s.type === 'casebook') {
-    g('ep-cb-title').value = d.cbTitle || s.title || '';
-    g('ep-cb-cite').value = d.cbCite || '';
-    g('ep-cb-sit').value = d.cbSit || '';
-    g('ep-cb-ruling').value = d.cbRuling || '';
-    g('ep-cb-principle').value = d.cbPrinciple || '';
-  } else if (s.type === 'stat') {
-    g('ep-st-title').value = d.stTitle || s.title || '';
-    g('ep-st-stat').value = d.stStat || '';
-    g('ep-st-label').value = d.stLabel || '';
-    g('ep-st-body').value = d.stBody || '';
-    g('ep-st-source').value = d.stSource || '';
+  } else if (s.type === 'mechanics') {
+    updateMechImgUI();
   }
 }
 
@@ -1340,62 +1418,24 @@ g('ep-mech-img-clear').addEventListener('click', () => {
 
 g('ep-save').addEventListener('click', () => {
   const type = g('ep-type').value;
-  let data = {};
-  let title = '';
+  const slide = slides[currentSlide];
+  // Preserve existing data from inline edits — only update structural fields from panel
+  const data = Object.assign({}, slide.data || {});
 
-  if (type === 'title') {
-    data = {
-      title: g('ep-title').value,
-      eyebrow: g('ep-eyebrow').value,
-      subtitle: g('ep-subtitle').value,
-    };
-    title = g('ep-title').value;
-  } else if (type === 'video') {
-    data = {
-      vidTitle: g('ep-vid-title').value,
-      panelText: g('ep-vid-panel').value,
-      vidEyebrow: g('ep-vid-eyebrow').value,
-      vidBody: g('ep-vid-body').value,
-      vidCta: g('ep-vid-cta').value,
-      vidOrder: g('ep-vid-video-first').checked ? 'video' : 'situation',
-      vidShowText: g('ep-vid-show-text').checked,
-      vidClipUrl: g('ep-vid-clip').value || '',
-    };
-    title = g('ep-vid-title').value;
-  } else if (type === 'reveal') {
-    data = {
-      revEyebrow: g('ep-rev-eyebrow').value,
-      revRuling: g('ep-rev-ruling').value,
-      revRule: g('ep-rev-rule').value,
-      revBody: g('ep-rev-body').value,
-      revNoteLabel: g('ep-rev-notelabel').value,
-      revNote: g('ep-rev-note').value,
-    };
-    title = g('ep-rev-ruling').value;
+  if (type === 'video') {
+    data.vidOrder = g('ep-vid-video-first').checked ? 'video' : 'situation';
+    data.vidShowText = g('ep-vid-show-text').checked;
+    data.vidClipUrl = g('ep-vid-clip').value || '';
   } else if (type === 'embed') {
-    data = { embTitle: g('ep-emb-title').value, embHeader: g('ep-emb-header').value, embHtml: g('ep-emb-html').value };
-    title = g('ep-emb-title').value || 'Embed';
-  } else if (type === 'rulechange') {
-    data = { rcTitle: g('ep-rc-title').value, rcRule: g('ep-rc-rule').value, rcHeading: g('ep-rc-heading').value, rcOld: g('ep-rc-old').value, rcNew: g('ep-rc-new').value, rcNote: g('ep-rc-note').value };
-    title = g('ep-rc-title').value || 'Rule Change';
-  } else if (type === 'emphasis') {
-    data = { emTitle: g('ep-em-title').value, emHeader: g('ep-em-header').value, emSeason: g('ep-em-season').value, em1: g('ep-em-1').value, em1d: g('ep-em-1d').value, em2: g('ep-em-2').value, em2d: g('ep-em-2d').value, em3: g('ep-em-3').value, em3d: g('ep-em-3d').value, em4: g('ep-em-4').value, em4d: g('ep-em-4d').value };
-    title = g('ep-em-title').value || 'Points of Emphasis';
-  } else if (type === 'mechanics') {
-    data = { mechTitle: g('ep-mech-title').value, mechHeader: g('ep-mech-header').value, mechSub: g('ep-mech-sub').value, mechPoints: g('ep-mech-points').value, mechNote: g('ep-mech-note').value };
-    title = g('ep-mech-title').value || 'Mechanics';
+    data.embTitle = g('ep-emb-title').value;
+    data.embHeader = g('ep-emb-header').value;
+    data.embHtml = g('ep-emb-html').value;
   } else if (type === 'discussion') {
-    data = { discTitle: g('ep-disc-title').value, discQ: g('ep-disc-q').value, discCtx: g('ep-disc-ctx').value, discTime: g('ep-disc-time').value };
-    title = g('ep-disc-title').value || 'Discussion';
-  } else if (type === 'casebook') {
-    data = { cbTitle: g('ep-cb-title').value, cbCite: g('ep-cb-cite').value, cbSit: g('ep-cb-sit').value, cbRuling: g('ep-cb-ruling').value, cbPrinciple: g('ep-cb-principle').value };
-    title = g('ep-cb-title').value || 'Casebook';
-  } else if (type === 'stat') {
-    data = { stTitle: g('ep-st-title').value, stStat: g('ep-st-stat').value, stLabel: g('ep-st-label').value, stBody: g('ep-st-body').value, stSource: g('ep-st-source').value };
-    title = g('ep-st-title').value || 'Stat';
+    data.discTime = g('ep-disc-time').value;
   }
 
-  slides[currentSlide] = { type, title, body: '', rule: '', data };
+  const title = slide.title || type;
+  slides[currentSlide] = { type, title, body: slide.body || '', rule: slide.rule || '', data };
   saveSlides();
   showSlide(currentSlide);
   toast('Saved');
