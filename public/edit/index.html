@@ -637,14 +637,26 @@ function pill(sc, text, dark) {
   return p;
 }
 
-function noteFooter(sc, label, text) {
+function noteFooter(sc, label, text, labelField, textField) {
   const bar = el('div',`position:absolute;left:0;right:0;bottom:0;height:${72*sc}px;background:#fff;border-top:${3*sc}px solid ${GOLD};display:flex;align-items:center;padding:0 ${32*sc}px;gap:${14*sc}px;`);
   const dot = el('div',`width:${8*sc}px;height:${8*sc}px;border-radius:50%;background:${GOLD};flex-shrink:0;`);
   const right = el('div',`flex:1;min-width:0;`);
   const lbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;margin-bottom:${2*sc}px;`);
+  if (labelField) lbl.dataset.field = labelField;
   lbl.textContent = label || "Officials' Note";
   const txt = el('div',`font-size:${13*sc}px;color:#666;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`);
-  txt.textContent = text || 'Add a key takeaway for officials here.';
+  if (textField) {
+    txt.dataset.field = textField;
+    txt.dataset.placeholder = 'Add a key takeaway for officials here.';
+    if (!text) {
+      txt.textContent = 'Add a key takeaway for officials here.';
+      txt.dataset.isEmpty = '1';
+    } else {
+      txt.textContent = text;
+    }
+  } else {
+    txt.textContent = text || 'Add a key takeaway for officials here.';
+  }
   right.append(lbl, txt);
   bar.append(dot, right);
   return bar;
@@ -682,26 +694,26 @@ function renderSlideContent(slide, container) {
       s.appendChild(el('div',`position:absolute;right:${408*sc}px;top:${60*sc}px;bottom:${60*sc}px;width:${1*sc}px;background:rgba(255,255,255,0.08);`));
       // Left text column
       const ew = el('div',`position:absolute;left:${L*sc}px;top:${40*sc}px;right:${428*sc}px;font-size:${11*sc}px;font-weight:700;color:${GOLD};letter-spacing:${3*sc}px;text-transform:uppercase;`);
-      ew.textContent = d.eyebrow || 'IHSA · Boys Volleyball';
+      ew.dataset.field='eyebrow'; const _ewVal=d.eyebrow||''; if(_ewVal){ew.textContent=_ewVal;}else{ew.textContent='IHSA · Boys Volleyball';ew.dataset.placeholder='IHSA · Boys Volleyball';}
       const tt = el('div',`position:absolute;left:${L*sc}px;top:${h*0.20}px;right:${428*sc}px;font-size:${54*sc}px;font-weight:800;color:#fff;line-height:0.95;letter-spacing:${-0.5*sc}px;`);
       tt.style.wordBreak='break-word';
-      tt.textContent = d.title || slide.title;
+      tt.dataset.field='title'; tt.dataset.placeholder='Click to add title'; if(d.title||slide.title){tt.textContent=d.title||slide.title;}else{tt.textContent='Click to add title';tt.dataset.isEmpty='1';tt.style.opacity='0.35';tt.style.fontStyle='italic';}
       const divL = el('div',`position:absolute;left:${L*sc}px;bottom:${108*sc}px;width:${40*sc}px;height:${4*sc}px;background:${GOLD};border-radius:2px;`);
       const sub = el('div',`position:absolute;left:${L*sc}px;bottom:${48*sc}px;right:${428*sc}px;font-size:${16*sc}px;color:rgba(255,255,255,0.4);line-height:1.5;`);
       sub.style.whiteSpace='pre-line';
-      sub.textContent = d.subtitle || slide.body || '';
+      sub.dataset.field='subtitle'; sub.dataset.placeholder='Click to add subtitle'; const _subtitleVal=d.subtitle||slide.body||''; if(_subtitleVal){sub.textContent=_subtitleVal;}else{sub.textContent='Click to add subtitle';sub.dataset.isEmpty='1';sub.style.opacity='0.35';sub.style.fontStyle='italic';}
       s.append(ew, tt, divL, sub);
     } else {
       // No logo — full width title layout
       const ew = el('div',`position:absolute;left:${L*sc}px;top:${40*sc}px;font-size:${12*sc}px;font-weight:700;color:${GOLD};letter-spacing:${3*sc}px;text-transform:uppercase;`);
-      ew.textContent = d.eyebrow || 'IHSA · Boys Volleyball';
+      ew.dataset.field='eyebrow'; const _ewVal=d.eyebrow||''; if(_ewVal){ew.textContent=_ewVal;}else{ew.textContent='IHSA · Boys Volleyball';ew.dataset.placeholder='IHSA · Boys Volleyball';}
       const tt = el('div',`position:absolute;left:${L*sc}px;top:${h*0.20}px;right:${140*sc}px;font-size:${78*sc}px;font-weight:800;color:#fff;line-height:0.92;letter-spacing:${-1*sc}px;`);
       tt.style.wordBreak='break-word';
-      tt.textContent = d.title || slide.title;
+      tt.dataset.field='title'; tt.dataset.placeholder='Click to add title'; if(d.title||slide.title){tt.textContent=d.title||slide.title;}else{tt.textContent='Click to add title';tt.dataset.isEmpty='1';tt.style.opacity='0.35';tt.style.fontStyle='italic';}
       const div = el('div',`position:absolute;left:${L*sc}px;bottom:${108*sc}px;width:${48*sc}px;height:${4*sc}px;background:${GOLD};border-radius:2px;`);
       const sub = el('div',`position:absolute;left:${L*sc}px;bottom:${48*sc}px;right:${140*sc}px;font-size:${19*sc}px;color:rgba(255,255,255,0.45);line-height:1.5;`);
       sub.style.whiteSpace='pre-line';
-      sub.textContent = d.subtitle || slide.body || '';
+      sub.dataset.field='subtitle'; sub.dataset.placeholder='Click to add subtitle'; const _subtitleVal=d.subtitle||slide.body||''; if(_subtitleVal){sub.textContent=_subtitleVal;}else{sub.textContent='Click to add subtitle';sub.dataset.isEmpty='1';sub.style.opacity='0.35';sub.style.fontStyle='italic';}
       s.append(ew, tt, div, sub);
     }
 
@@ -713,20 +725,20 @@ function renderSlideContent(slide, container) {
     // Dark notch top of panel
     panel.appendChild(el('div',`position:absolute;top:0;left:0;right:0;height:${5*sc}px;background:rgba(0,0,0,0.2);`));
     const scenLabel = el('div',`font-size:${11*sc}px;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:${3*sc}px;text-transform:uppercase;margin-bottom:${10*sc}px;`);
-    scenLabel.textContent = d.vidTitle || slide.title;
+    scenLabel.dataset.field='vidTitle'; scenLabel.dataset.placeholder='Scenario label'; const _vtVal=d.vidTitle||slide.title||''; if(_vtVal){scenLabel.textContent=_vtVal;}else{scenLabel.textContent='Scenario label';scenLabel.dataset.isEmpty='1';scenLabel.style.opacity='0.65';}
     const bigTxt = el('div',`font-size:${56*sc}px;font-weight:900;color:#fff;line-height:0.88;letter-spacing:${-1*sc}px;text-transform:uppercase;margin-bottom:${24*sc}px;`);
     bigTxt.style.whiteSpace='pre-line';
-    bigTxt.textContent = d.panelText || 'You\nMake\nthe\nCall';
+    bigTxt.dataset.field='panelText'; bigTxt.style.whiteSpace='pre-line'; bigTxt.textContent=d.panelText||'You\nMake\nthe\nCall';
     // Bottom pill on panel
     const ctaBadge = el('div',`display:inline-block;background:${NAVY};color:#fff;font-size:${14*sc}px;font-weight:700;padding:${9*sc}px ${22*sc}px;border-radius:${4*sc}px;letter-spacing:${0.3*sc}px;`);
-    ctaBadge.textContent = d.vidCta || "What's your call?";
+    ctaBadge.dataset.field='vidCta'; ctaBadge.textContent=d.vidCta||"What's your call?";
     panel.append(scenLabel, bigTxt, ctaBadge);
     // Right content area
     const eyeLbl = el('div',`position:absolute;left:${392*sc}px;top:${36*sc}px;font-size:${11*sc}px;font-weight:700;color:${GOLD};letter-spacing:${3*sc}px;text-transform:uppercase;`);
-    eyeLbl.textContent = d.vidEyebrow || 'Situation';
+    eyeLbl.dataset.field='vidEyebrow'; eyeLbl.textContent=d.vidEyebrow||'Situation';
     const ruleLine = el('div',`position:absolute;left:${392*sc}px;top:${62*sc}px;right:${32*sc}px;height:${1*sc}px;background:rgba(0,0,0,0.1);`);
     const bodyTxt = el('div',`position:absolute;left:${392*sc}px;top:${82*sc}px;right:${32*sc}px;bottom:${32*sc}px;font-size:${20*sc}px;color:#1a1a1a;line-height:1.7;white-space:pre-wrap;overflow:hidden;`);
-    bodyTxt.textContent = d.vidBody || slide.body || '';
+    bodyTxt.dataset.field='vidBody'; bodyTxt.dataset.placeholder='Describe the situation...'; const _vbVal=d.vidBody||slide.body||''; if(_vbVal){bodyTxt.textContent=_vbVal;}else{bodyTxt.textContent='Describe the situation...';bodyTxt.dataset.isEmpty='1';bodyTxt.style.opacity='0.45';bodyTxt.style.fontStyle='italic';}
     s.append(panel, eyeLbl, ruleLine, bodyTxt);
 
   // ── ANSWER REVEAL ─────────────────────────────────────────────────────
@@ -737,17 +749,17 @@ function renderSlideContent(slide, container) {
     // Left orange stripe on dark half
     darkHalf.appendChild(el('div',`position:absolute;top:0;left:0;width:${10*sc}px;bottom:0;background:${GOLD};`));
     const eyebrow = el('div',`position:absolute;top:${22*sc}px;left:${32*sc}px;font-size:${11*sc}px;font-weight:700;color:rgba(255,255,255,0.35);letter-spacing:${3*sc}px;text-transform:uppercase;`);
-    eyebrow.textContent = d.revEyebrow || 'The Call · Answer';
+    eyebrow.dataset.field='revEyebrow'; eyebrow.textContent=d.revEyebrow||'The Call · Answer';
     const ruling = el('div',`position:absolute;top:${46*sc}px;left:${32*sc}px;right:${32*sc}px;font-size:${54*sc}px;font-weight:800;color:#fff;line-height:0.95;letter-spacing:${-0.5*sc}px;overflow:hidden;`);
     ruling.style.maxHeight = `${130*sc}px`;
-    ruling.textContent = d.revRuling || slide.title;
+    ruling.dataset.field='revRuling'; ruling.dataset.placeholder='YOUR RULING HERE'; const _rrVal=d.revRuling||slide.title||''; if(_rrVal){ruling.textContent=_rrVal;}else{ruling.textContent='YOUR RULING HERE';ruling.dataset.isEmpty='1';ruling.style.opacity='0.4';}
     // Rule pill straddling the boundary
     const rulPill = el('div',`position:absolute;top:${h*0.48 - 16*sc}px;left:${32*sc}px;background:${GOLD};color:#fff;font-size:${11*sc}px;font-weight:700;padding:${4*sc}px ${16*sc}px;border-radius:${20*sc}px;letter-spacing:${0.5*sc}px;`);
-    rulPill.textContent = d.revRule || slide.rule || 'NFHS Rule';
+    rulPill.dataset.field='revRule'; rulPill.textContent=d.revRule||slide.rule||'NFHS Rule';
     // Explanation text in light area
     const expl = el('div',`position:absolute;left:${32*sc}px;right:${32*sc}px;top:${h*0.48 + 24*sc}px;bottom:${84*sc}px;font-size:${18*sc}px;color:#1a1a1a;line-height:1.7;white-space:pre-wrap;overflow:hidden;`);
-    expl.textContent = d.revBody || slide.body || '';
-    s.append(darkHalf, eyebrow, ruling, rulPill, expl, noteFooter(sc, d.revNoteLabel, d.revNote));
+    expl.dataset.field='revBody'; expl.dataset.placeholder='Explanation goes here...'; const _rbVal=d.revBody||slide.body||''; if(_rbVal){expl.textContent=_rbVal;}else{expl.textContent='Explanation goes here...';expl.dataset.isEmpty='1';expl.style.opacity='0.4';expl.style.fontStyle='italic';}
+    s.append(darkHalf, eyebrow, ruling, rulPill, expl, noteFooter(sc, d.revNoteLabel, d.revNote, 'revNoteLabel', 'revNote'));
 
   // ── EMBED / SLIDO ─────────────────────────────────────────────────────
   } else if (slide.type === 'embed') {
@@ -773,15 +785,15 @@ function renderSlideContent(slide, container) {
     s.appendChild(topBar(sc, 'Rule Change', rPill));
     // Heading
     const hd = el('div',`position:absolute;left:${32*sc}px;top:${82*sc}px;right:${32*sc}px;font-size:${32*sc}px;font-weight:800;color:${NAVY};line-height:1.1;`);
-    hd.textContent = d.rcHeading || slide.title;
+    hd.dataset.field='rcHeading'; hd.dataset.placeholder='Rule heading'; const _rchVal=d.rcHeading||slide.title||''; if(_rchVal){hd.textContent=_rchVal;}else{hd.textContent='Rule heading';hd.dataset.isEmpty='1';hd.style.opacity='0.35';}
     // Two columns
     const gap = 12*sc, cw = (w - 64*sc - gap) / 2;
     const mk = (left, hdrTxt, bodyTxt, isNew) => {
       const col = el('div',`position:absolute;left:${left}px;top:${142*sc}px;width:${cw}px;bottom:${32*sc}px;background:#fff;border-radius:${8*sc}px;overflow:hidden;${isNew ? `border-top:${4*sc}px solid ${GOLD};` : 'border-top:4px solid #ccc;'}`);
       const ch = el('div',`padding:${10*sc}px ${16*sc}px ${8*sc}px;font-size:${10*sc}px;font-weight:700;letter-spacing:${1.5*sc}px;text-transform:uppercase;color:${isNew ? GOLD : '#999'};`);
-      ch.textContent = hdrTxt;
+      ch.textContent=hdrTxt;
       const cb = el('div',`padding:${14*sc}px ${16*sc}px;font-size:${17*sc}px;color:${isNew?'#111':'#777'};line-height:1.65;white-space:pre-wrap;${isNew?'font-weight:500;':''}`);
-      cb.textContent = bodyTxt;
+      if(isNew){cb.dataset.field='rcNew';cb.dataset.placeholder='New rule text...';}else{cb.dataset.field='rcOld';cb.dataset.placeholder='Previous rule text...';} const _cbVal=bodyTxt||''; if(_cbVal){cb.textContent=_cbVal;}else{cb.textContent=isNew?'New rule text...':'Previous rule text...';cb.dataset.isEmpty='1';cb.style.opacity='0.35';cb.style.fontStyle='italic';}
       col.append(ch, cb);
       return col;
     };
@@ -793,7 +805,7 @@ function renderSlideContent(slide, container) {
     const nb = el('div',`position:absolute;left:0;right:0;bottom:0;height:${0}px;`); // replaced by note if present
     if (d.rcNote) {
       const nb2 = el('div',`position:absolute;left:${32*sc}px;bottom:${8*sc}px;font-size:${12*sc}px;color:#999;font-style:italic;`);
-      nb2.textContent = d.rcNote;
+      nb2.dataset.field='rcNote'; nb2.textContent=d.rcNote||'';
       s.appendChild(nb2);
     }
     s.appendChild(arw);
@@ -861,7 +873,7 @@ function renderSlideContent(slide, container) {
       r.append(dot,t);
       ptArea.appendChild(r);
     });
-    s.append(dBox, ptArea, noteFooter(sc, 'Note', d.mechNote||''));
+    s.append(dBox, ptArea, noteFooter(sc, 'Note', d.mechNote||'', null, 'mechNote'));
 
   // ── DISCUSSION ────────────────────────────────────────────────────────
   } else if (slide.type === 'discussion') {
@@ -878,10 +890,10 @@ function renderSlideContent(slide, container) {
     if(d.discTime){const tb=el('div',`font-size:${11*sc}px;padding:${3*sc}px ${12*sc}px;border-radius:${20*sc}px;border:1px solid rgba(242,101,34,0.35);color:rgba(255,255,255,0.45);`);tb.textContent=d.discTime;dRow.appendChild(tb);}
     // Question
     const qEl=el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;top:${72*sc}px;font-size:${36*sc}px;font-weight:800;color:#fff;line-height:1.18;`);
-    qEl.textContent=d.discQ||'Discussion question goes here.';
+    qEl.dataset.field='discQ'; qEl.dataset.placeholder='Click to add your discussion question...'; const _dqVal=d.discQ||''; if(_dqVal){qEl.textContent=_dqVal;}else{qEl.textContent='Click to add your discussion question...';qEl.dataset.isEmpty='1';qEl.style.opacity='0.4';qEl.style.fontStyle='italic';}
     // Context
     const ctxEl=el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;bottom:${36*sc}px;font-size:${15*sc}px;color:rgba(255,255,255,0.4);line-height:1.6;`);
-    ctxEl.textContent=d.discCtx||'';
+    ctxEl.dataset.field='discCtx'; ctxEl.dataset.placeholder='Optional context...'; const _dcVal=d.discCtx||''; if(_dcVal){ctxEl.textContent=_dcVal;}else{ctxEl.textContent='Optional context...';ctxEl.dataset.isEmpty='1';ctxEl.style.opacity='0.25';ctxEl.style.fontStyle='italic';}
     // Big ? top-right
     const qm=el('div',`position:absolute;right:${28*sc}px;top:${10*sc}px;font-size:${220*sc}px;font-weight:900;color:rgba(242,101,34,0.12);line-height:1;pointer-events:none;`);
     qm.textContent='?';
@@ -919,7 +931,7 @@ function renderSlideContent(slide, container) {
         return col;
       };
       s.append(mkCol(32*sc,'Situation',d.cbSit||'',false), mkCol(32*sc+cw2+16*sc,'Ruling',d.cbRuling||'',true));
-      s.appendChild(noteFooter(sc, 'Key Principle', d.cbPrinciple||''));
+      s.appendChild(noteFooter(sc, 'Key Principle', d.cbPrinciple||'', null, 'cbPrinciple'));
     }
 
   // ── STAT ──────────────────────────────────────────────────────────────
@@ -928,7 +940,7 @@ function renderSlideContent(slide, container) {
     // Decorative right panel
     const rPanel=el('div',`position:absolute;right:0;top:0;bottom:0;width:${380*sc}px;background:rgba(242,101,34,0.07);border-left:${2*sc}px solid rgba(242,101,34,0.15);display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:${48*sc}px ${44*sc}px;`);
     const stBodyEl=el('div',`font-size:${17*sc}px;color:rgba(255,255,255,0.55);line-height:1.7;white-space:pre-wrap;`);
-    stBodyEl.textContent=d.stBody||'';
+    stBodyEl.dataset.field='stBody'; stBodyEl.dataset.placeholder='Supporting text...'; const _sbVal=d.stBody||''; if(_sbVal){stBodyEl.textContent=_sbVal;}else{stBodyEl.textContent='Supporting text...';stBodyEl.dataset.isEmpty='1';stBodyEl.style.opacity='0.35';stBodyEl.style.fontStyle='italic';}
     if(d.stSource){const src=el('div',`font-size:${11*sc}px;color:rgba(255,255,255,0.22);font-style:italic;margin-top:${16*sc}px;`);src.textContent=d.stSource;rPanel.appendChild(src);}
     rPanel.appendChild(stBodyEl);
     // Left content
@@ -937,9 +949,9 @@ function renderSlideContent(slide, container) {
     eyeL.textContent=d.stTitle||slide.title||'Did You Know?';
     s.appendChild(el('div',`position:absolute;left:${32*sc}px;top:${64*sc}px;width:${40*sc}px;height:${3*sc}px;background:${GOLD};border-radius:2px;`));
     const bigN=el('div',`position:absolute;left:${28*sc}px;top:${80*sc}px;font-size:${130*sc}px;font-weight:900;color:#fff;line-height:0.88;letter-spacing:${-2*sc}px;right:${400*sc}px;overflow:hidden;`);
-    bigN.textContent=d.stStat||'—';
+    bigN.dataset.field='stStat'; bigN.textContent=d.stStat||'—';
     const stLbl2=el('div',`position:absolute;left:${32*sc}px;bottom:${56*sc}px;right:${400*sc}px;font-size:${18*sc}px;color:${GOLD};font-weight:600;line-height:1.4;`);
-    stLbl2.textContent=d.stLabel||'';
+    stLbl2.dataset.field='stLabel'; stLbl2.dataset.placeholder='Stat description...'; const _slVal=d.stLabel||''; if(_slVal){stLbl2.textContent=_slVal;}else{stLbl2.textContent='Stat description...';stLbl2.dataset.isEmpty='1';stLbl2.style.opacity='0.35';stLbl2.style.fontStyle='italic';}
     s.append(eyeL,bigN,stLbl2,rPanel);
   }
 
@@ -948,6 +960,23 @@ function renderSlideContent(slide, container) {
 function el(tag, css) {
   const d = document.createElement(tag);
   d.style.cssText = css;
+  return d;
+}
+
+// Create an editable text element (editor only)
+function etxt(tag, css, fieldName, value, placeholder) {
+  const d = document.createElement(tag);
+  d.style.cssText = css;
+  d.dataset.field = fieldName;
+  if (value) {
+    d.textContent = value;
+  } else if (placeholder) {
+    d.textContent = placeholder;
+    d.dataset.placeholder = placeholder;
+    d.dataset.isEmpty = '1';
+    d.style.opacity = '0.35';
+    d.style.fontStyle = 'italic';
+  }
   return d;
 }
 
@@ -979,30 +1008,21 @@ function showSlide(idx) {
 /* Switching between video and slide view for current position */
 // ── INLINE EDITING ──────────────────────────────────────────
 function makeEditable(container, slide) {
-  const d = slide.data || {};
-  const sc = parseFloat(container.style.width) / 960;
-
-  // Map of data keys to their rendered elements
-  // We find elements by their text content matching the data values
-  // and tag them with data-field for the save handler
-  const fieldMap = buildFieldMap(slide);
-
-  container.querySelectorAll('div, span').forEach(el => {
-    const text = el.textContent.trim();
-    if (!text || el.children.length > 0) return; // skip containers, only leaf text nodes
-    if (el.style.width && parseFloat(el.style.width) < 20) return; // skip tiny decorative elements
-
-    // Find which field this element maps to
-    const field = fieldMap[text];
-    if (!field) return;
+  container.querySelectorAll('[data-field]').forEach(el => {
+    const field = el.dataset.field;
+    const isPlaceholder = el.dataset.isEmpty === '1';
 
     el.classList.add('editable-text');
     el.contentEditable = 'true';
-    el.dataset.field = field;
     el.spellcheck = false;
 
     el.addEventListener('focus', () => {
-      // Select all on focus for easy replacement
+      if (isPlaceholder || el.dataset.isEmpty === '1') {
+        el.textContent = '';
+        el.style.opacity = '';
+        el.style.fontStyle = '';
+        el.dataset.isEmpty = '';
+      }
       const range = document.createRange();
       range.selectNodeContents(el);
       const sel = window.getSelection();
@@ -1011,20 +1031,31 @@ function makeEditable(container, slide) {
     });
 
     el.addEventListener('blur', () => {
-      const newVal = el.innerText;
-      writeField(slide, field, newVal);
-      // Update slide title in panel if title changed
-      if (['title', 'vidTitle', 'revRuling', 'embTitle', 'rcTitle', 'emTitle', 'mechTitle', 'discTitle', 'cbTitle', 'stTitle'].includes(field)) {
+      const newVal = el.innerText.trim();
+      if (!newVal && el.dataset.placeholder) {
+        el.textContent = el.dataset.placeholder;
+        el.style.opacity = '0.35';
+        el.style.fontStyle = 'italic';
+        el.dataset.isEmpty = '1';
+        writeField(slide, field, '');
+      } else {
+        el.style.opacity = '';
+        el.style.fontStyle = '';
+        el.dataset.isEmpty = '';
+        writeField(slide, field, el.innerText);
+      }
+      const titleFields = ['title','vidTitle','revRuling','embHeader','rcHeading','emHeader','mechHeader','discQ','cbTitle','stTitle'];
+      if (titleFields.includes(field) && newVal) {
         slide.title = newVal;
         document.getElementById('tb-slide-title').textContent = newVal;
+        renderEditorList();
       }
       saveSlides();
     });
 
     el.addEventListener('keydown', e => {
       if (e.key === 'Escape') { el.blur(); }
-      // Allow Enter for multiline, block it for single-line fields
-      const multiline = ['subtitle', 'vidBody', 'panelText', 'revBody', 'rcOld', 'rcNew', 'mechPoints', 'discQ', 'discCtx', 'cbSit', 'cbRuling', 'stBody'];
+      const multiline = ['subtitle','vidBody','panelText','revBody','rcOld','rcNew','mechPoints','discQ','discCtx','cbSit','cbRuling','stBody'];
       if (e.key === 'Enter' && !multiline.includes(field)) {
         e.preventDefault();
         el.blur();
