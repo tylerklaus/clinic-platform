@@ -3,6 +3,7 @@
 // ============================================================
 import express from 'express';
 import session from 'express-session';
+import FileStoreFactory from 'session-file-store';
 import Database from 'better-sqlite3';
 import multer from 'multer';
 import { randomBytes, createHash } from 'crypto';
@@ -13,6 +14,7 @@ import { createServer } from 'http';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
+const FileStore = FileStoreFactory(session);
 const PORT = process.env.PORT || 3000;
 
 // ── DB SETUP ─────────────────────────────────────────────────
@@ -78,10 +80,12 @@ db.exec(`
 `);
 
 // ── MIDDLEWARE ────────────────────────────────────────────────
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
   secret: process.env.SESSION_SECRET || randomBytes(32).toString('hex'),
+  store: new FileStore({ path: '/opt/clinic-platform/data/sessions', ttl: 86400, retries: 0 }),
   resave: false,
   saveUninitialized: false,
   cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 86400000 * 7 }
@@ -148,7 +152,7 @@ app.get('/auth/callback', async (req, res) => {
     const { code, state } = req.query;
     if (state !== req.session.oauthState) return res.status(400).send('Invalid state');
 
-    const tokenRes = await fetch(`${OIDC_BASE}/token`, {
+    const tokenRes = await fetch(`${OIDC_BASE}/api/oidc/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -157,17 +161,30 @@ app.get('/auth/callback', async (req, res) => {
       })
     });
     const tokens = await tokenRes.json();
-    const userRes = await fetch(`${OIDC_BASE}/userinfo`, {
+    const userRes = await fetch(`${OIDC_BASE}/api/oidc/userinfo`, {
       headers: { Authorization: `Bearer ${tokens.access_token}` }
     });
     const profile = await userRes.json();
 
-    // Upsert user
-    db.prepare(`
-      INSERT INTO users (oidc_sub, email, name, role)
-      VALUES (?, ?, ?, 'viewer')
-      ON CONFLICT(oidc_sub) DO UPDATE SET email=excluded.email, name=excluded.name
-    `).run(profile.sub, profile.email, profile.name || profile.preferred_username);
+    // Map Pocket ID groups to roles
+    const groups = profile.groups || [];
+    let role = 'viewer';
+    if (groups.includes('clinic-admin')) role = 'admin';
+    else if (groups.includes('clinic-creator')) role = 'creator';
+
+    // Upsert user — update role if it comes from a group, preserve manual role overrides
+    const existing = db.prepare('SELECT * FROM users WHERE oidc_sub=?').get(profile.sub);
+    if (existing) {
+      // Only update role from groups if groups are present — allows manual role override when no groups set
+      const newRole = groups.length > 0 ? role : existing.role;
+      db.prepare(`
+        UPDATE users SET email=?, name=?, role=? WHERE oidc_sub=?
+      `).run(profile.email, profile.name || profile.preferred_username, newRole, profile.sub);
+    } else {
+      db.prepare(`
+        INSERT INTO users (oidc_sub, email, name, role) VALUES (?, ?, ?, ?)
+      `).run(profile.sub, profile.email, profile.name || profile.preferred_username, role);
+    }
 
     const user = db.prepare('SELECT * FROM users WHERE oidc_sub=?').get(profile.sub);
     req.session.user = user;
