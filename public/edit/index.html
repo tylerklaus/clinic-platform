@@ -1448,12 +1448,12 @@ async function loadFromServer() {
     const meta = await mr.json();
     document.title = 'Edit: ' + meta.title + ' — Clinic';
     slides = serverSlides.length ? serverSlides : defaultSlides;
-    renderSlides();
+    showSlide(0);
     loadServerClipList();
   } catch(e) {
     console.error('Load error:', e);
     slides = defaultSlides;
-    renderSlides();
+    showSlide(0);
   }
 }
 
