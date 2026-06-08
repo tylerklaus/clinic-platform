@@ -125,11 +125,15 @@ async function init(){
     fetch("/api/presentations/"+slug+"/slides"),
     fetch("/api/presentations/"+slug)
   ]);
-  if(!sr.ok){document.body.innerHTML="<div style="color:#fff;padding:40px;font-size:20px;">Presentation not found</div>";return;}
+  if(!sr.ok){
+    document.body.innerHTML='<div style="color:#fff;padding:40px;font-size:20px;">Presentation not found</div>';
+    return;
+  }
   slides=await sr.json();
   const meta=await mr.json();
   document.title=meta.title+" - Clinic";
-  showSlide(0);setView(true);
+  showSlide(0);
+  setView(slides[0]&&slides[0].type==="video");
   loadClips();
 }
 
@@ -137,12 +141,24 @@ async function loadClips(){
   const r=await fetch("/api/presentations/"+slug+"/videos");
   const vids=await r.json();
   const list=document.getElementById("vl-list");
-  if(!vids.length){list.innerHTML="<div style="padding:20px;font-size:13px;color:rgba(255,255,255,0.3);">No clips attached yet.</div>";return;}
-  list.innerHTML=vids.map(v=>{
+  if(!vids.length){
+    list.innerHTML='<div style="padding:20px;font-size:13px;color:rgba(255,255,255,0.3);">No clips attached yet.</div>';
+    return;
+  }
+  list.innerHTML="";
+  vids.forEach(function(v){
     const mb=(v.size/1024/1024).toFixed(0);
     const url=v.scope==="shared"?"/videos/shared/"+v.filename:"/videos/p/"+slug+"/"+v.filename;
-    return "<div class="vl-item" onclick="loadUrl('"+url+"',this)"><div class="vl-icon"><i class="ti ti-movie"></i></div><div style="flex:1;min-width:0"><div class="vl-name">"+v.original_name+"</div><div class="vl-meta">"+mb+"MB<span class="vl-scope "+v.scope+"">"+v.scope+"</span></div></div></div>";
-  }).join("");
+    const d=document.createElement("div");
+    d.className="vl-item";
+    d.innerHTML='<div class="vl-icon"><i class="ti ti-movie"></i></div>'+
+      '<div style="flex:1;min-width:0">'+
+      '<div class="vl-name">'+v.original_name+'</div>'+
+      '<div class="vl-meta">'+mb+'MB<span class="vl-scope '+v.scope+'">'+v.scope+'</span></div>'+
+      '</div>';
+    d.addEventListener("click",function(){loadUrl(url,d);});
+    list.appendChild(d);
+  });
 }
 
 function loadUrl(url,el){
@@ -154,36 +170,44 @@ function loadUrl(url,el){
   setView(true);
 }
 
-document.getElementById("file-input").addEventListener("change",e=>{
+document.getElementById("file-input").addEventListener("change",function(e){
   if(!e.target.files[0])return;
   document.getElementById("drop-overlay").style.display="none";
   video.src=URL.createObjectURL(e.target.files[0]);
 });
-document.getElementById("video-slide").addEventListener("dragover",e=>e.preventDefault());
-document.getElementById("video-slide").addEventListener("drop",e=>{
+const vs=document.getElementById("video-slide");
+vs.addEventListener("dragover",function(e){e.preventDefault();});
+vs.addEventListener("drop",function(e){
   e.preventDefault();
   if(!e.dataTransfer.files[0])return;
   document.getElementById("drop-overlay").style.display="none";
   video.src=URL.createObjectURL(e.dataTransfer.files[0]);
 });
 
-video.addEventListener("timeupdate",()=>{
+video.addEventListener("timeupdate",function(){
   const t=video.currentTime,d=video.duration||1;
   document.getElementById("vc-scrubber").value=Math.round((t/d)*10000);
   const h=Math.floor(t/3600),m=Math.floor((t%3600)/60),s=Math.floor(t%60),ms=Math.floor((t%1)*1000);
-  document.getElementById("vc-timecode").textContent=String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")+"."+String(ms).padStart(3,"0");
+  document.getElementById("vc-timecode").textContent=
+    String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")+"."+String(ms).padStart(3,"0");
 });
-video.addEventListener("play",()=>document.getElementById("vc-play").innerHTML="<i class="ti ti-player-pause"></i>");
-video.addEventListener("pause",()=>document.getElementById("vc-play").innerHTML="<i class="ti ti-player-play"></i>");
-video.addEventListener("ended",()=>{if(looping){video.currentTime=0;video.play();}});
-document.getElementById("vc-play").addEventListener("click",()=>{video.src&&(video.paused?video.play():video.pause());});
-document.getElementById("vc-prevframe").addEventListener("click",()=>{video.pause();video.currentTime=Math.max(0,video.currentTime-1/FPS);});
-document.getElementById("vc-nextframe").addEventListener("click",()=>{video.pause();video.currentTime=Math.min(video.duration||0,video.currentTime+1/FPS);});
-document.getElementById("vc-back5").addEventListener("click",()=>{video.currentTime=Math.max(0,video.currentTime-5);});
-document.getElementById("vc-fwd5").addEventListener("click",()=>{video.currentTime=Math.min(video.duration||0,video.currentTime+5);});
-document.getElementById("vc-loop").addEventListener("click",()=>{looping=!looping;video.loop=looping;document.getElementById("vc-loop").classList.toggle("active",looping);});
-document.getElementById("vc-speed").addEventListener("change",e=>{video.playbackRate=parseFloat(e.target.value);});
-document.getElementById("vc-scrubber").addEventListener("input",e=>{if(video.duration)video.currentTime=(e.target.value/10000)*video.duration;});
+video.addEventListener("play",function(){document.getElementById("vc-play").innerHTML='<i class="ti ti-player-pause"></i>';});
+video.addEventListener("pause",function(){document.getElementById("vc-play").innerHTML='<i class="ti ti-player-play"></i>';});
+video.addEventListener("ended",function(){if(looping){video.currentTime=0;video.play();}});
+
+document.getElementById("vc-play").addEventListener("click",function(){video.src&&(video.paused?video.play():video.pause());});
+document.getElementById("vc-prevframe").addEventListener("click",function(){video.pause();video.currentTime=Math.max(0,video.currentTime-1/FPS);});
+document.getElementById("vc-nextframe").addEventListener("click",function(){video.pause();video.currentTime=Math.min(video.duration||0,video.currentTime+1/FPS);});
+document.getElementById("vc-back5").addEventListener("click",function(){video.currentTime=Math.max(0,video.currentTime-5);});
+document.getElementById("vc-fwd5").addEventListener("click",function(){video.currentTime=Math.min(video.duration||0,video.currentTime+5);});
+document.getElementById("vc-loop").addEventListener("click",function(){
+  looping=!looping;video.loop=looping;
+  document.getElementById("vc-loop").classList.toggle("active",looping);
+});
+document.getElementById("vc-speed").addEventListener("change",function(e){video.playbackRate=parseFloat(e.target.value);});
+document.getElementById("vc-scrubber").addEventListener("input",function(e){
+  if(video.duration)video.currentTime=(e.target.value/10000)*video.duration;
+});
 
 function resizeFrame(){
   const deck=document.getElementById("deck");
@@ -192,47 +216,56 @@ function resizeFrame(){
   const f=document.getElementById("slide-frame");
   f.style.width=w+"px";f.style.height=h+"px";
 }
-window.addEventListener("resize",resizeFrame);resizeFrame();
+window.addEventListener("resize",resizeFrame);
+resizeFrame();
 
 function showSlide(idx){
   currentSlide=Math.max(0,Math.min(slides.length-1,idx));
   const s=slides[currentSlide];
   document.getElementById("tb-slide-indicator").textContent=(currentSlide+1)+" / "+slides.length;
-  document.getElementById("tb-slide-title").textContent=s.title||"";
+  document.getElementById("tb-slide-title").textContent=(s&&s.title)||"";
 }
 
 function setView(wantVideo){
   const slide=slides[currentSlide];
-  if(slide&&slide.type!=="video")wantVideo=false;
+  if(!slide||slide.type!=="video")wantVideo=false;
   showingVideo=wantVideo;
   document.getElementById("video-slide").classList.toggle("active",wantVideo);
   document.getElementById("content-slide").classList.toggle("active",!wantVideo);
   if(!wantVideo&&slide){
     const inner=document.getElementById("slide-inner");
     const f=document.getElementById("slide-frame");
-    inner.style.width=f.style.width;inner.style.height=f.style.height;
+    inner.style.width=f.style.width;
+    inner.style.height=f.style.height;
     renderSlideContent(slide,inner);
   }
 }
 
 function advanceNext(){
   const slide=slides[currentSlide];
+  if(!slide)return;
   if(slide.type==="video"&&showingVideo){setView(false);return;}
   if(slide.type==="casebook"&&cbPhase===0){cbPhase=1;setView(false);return;}
-  if(currentSlide<slides.length-1){currentSlide++;cbPhase=0;showSlide(currentSlide);setView(slides[currentSlide].type==="video");}
+  if(currentSlide<slides.length-1){
+    currentSlide++;cbPhase=0;
+    showSlide(currentSlide);
+    setView(slides[currentSlide].type==="video");
+  }
 }
 
 document.getElementById("tb-next").addEventListener("click",advanceNext);
-document.getElementById("tb-prev").addEventListener("click",()=>{
-  if(slides[currentSlide].type==="video"&&showingVideo){setView(false);return;}
-  if(slides[currentSlide].type==="casebook"&&cbPhase===1){cbPhase=0;setView(false);return;}
+document.getElementById("tb-prev").addEventListener("click",function(){
+  const slide=slides[currentSlide];
+  if(!slide)return;
+  if(slide.type==="video"&&showingVideo){setView(false);return;}
+  if(slide.type==="casebook"&&cbPhase===1){cbPhase=0;setView(false);return;}
   if(currentSlide>0){currentSlide--;cbPhase=0;showSlide(currentSlide);setView(slides[currentSlide].type==="video");}
 });
-document.getElementById("tb-video-toggle").addEventListener("click",()=>setView(!showingVideo));
-document.getElementById("tb-library").addEventListener("click",()=>document.getElementById("video-library").classList.toggle("open"));
-document.getElementById("vl-close").addEventListener("click",()=>document.getElementById("video-library").classList.remove("open"));
+document.getElementById("tb-video-toggle").addEventListener("click",function(){setView(!showingVideo);});
+document.getElementById("tb-library").addEventListener("click",function(){document.getElementById("video-library").classList.toggle("open");});
+document.getElementById("vl-close").addEventListener("click",function(){document.getElementById("video-library").classList.remove("open");});
 
-document.addEventListener("keydown",e=>{
+document.addEventListener("keydown",function(e){
   const tag=document.activeElement.tagName;
   if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT")return;
   if(e.code==="Space"){e.preventDefault();document.getElementById("vc-play").click();}
