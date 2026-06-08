@@ -579,46 +579,21 @@ html, body {
 <div id="editor-saving">Saving...</div>
 <script src="/assets/renderer.js"></script>
 <script>
-const slug=location.pathname.split('/edit/')[1];
 
-const FPS = 29.97;
-const NAVY = '#1B1B2F';
-const GOLD = '#F26522';
-
-/* ── DEFAULT SLIDES ── */
+/* ── STATE ── */
 const defaultSlides = [
-  { type:'title',  title:'You Make the Call', body:'IHSA Boys Volleyball\nNFHS Rules Scenarios', rule:'' },
-  { type:'video',  title:'Scenario 1',        body:'Describe the situation here after loading your clip.\n\nWhat is your call?', rule:'' },
-  { type:'reveal', title:'Scenario 1 — Answer', body:'YOUR RULING HERE\n\nExplanation of the rule. Reference case book play if applicable.', rule:'NFHS Rule X-X' },
-  { type:'video',  title:'Scenario 2',        body:'Describe the situation here after loading your clip.\n\nWhat is your call?', rule:'' },
-  { type:'reveal', title:'Scenario 2 — Answer', body:'YOUR RULING HERE\n\nExplanation goes here.', rule:'NFHS Rule X-X' },
-  { type:'video',  title:'Scenario 3',        body:'Describe the situation here after loading your clip.\n\nWhat is your call?', rule:'' },
-  { type:'reveal', title:'Scenario 3 — Answer', body:'YOUR RULING HERE\n\nExplanation goes here.', rule:'NFHS Rule X-X' },
-  { type:'video',  title:'Scenario 4',        body:'Describe the situation here after loading your clip.\n\nWhat is your call?', rule:'' },
-  { type:'reveal', title:'Scenario 4 — Answer', body:'YOUR RULING HERE\n\nExplanation goes here.', rule:'NFHS Rule X-X' },
-  { type:'video',  title:'Scenario 5',        body:'Describe the situation here after loading your clip.\n\nWhat is your call?', rule:'' },
-  { type:'reveal', title:'Scenario 5 — Answer', body:'YOUR RULING HERE\n\nExplanation goes here.', rule:'NFHS Rule X-X' },
-  { type:'title',  title:'Any Questions?',    body:'IHSA Boys Volleyball · Officials Clinic', rule:'' },
+  { type:'title',  title:'You Make the Call', body:'IHSA Boys Volleyball\nNFHS Rules Scenarios', rule:'', data:{} },
+  { type:'video',  title:'Scenario 1', body:'Describe the situation here.\n\nWhat is your call?', rule:'', data:{} },
+  { type:'reveal', title:'Scenario 1 — Answer', body:'YOUR RULING HERE\n\nExplanation goes here.', rule:'NFHS Rule X-X', data:{} },
 ];
-
 let slides = [];
 let currentSlide = 0;
 let showingVideo = true;
 let looping = false;
+let cbPhase = 0;
+let mechImageSrc = {};
 let titleLogoSrc = null;
-let cbPhase = 0; // 0=situation, 1=reveal
-let mechImageSrc = {}; // keyed by slide index
 const video = document.getElementById('video-el');
-
-let saveTimer=null;
-function saveSlides(){
-  clearTimeout(saveTimer);
-  saveTimer=setTimeout(async()=>{
-    const el=document.getElementById('editor-saving');
-    el.classList.add('show');
-    try{await fetch('/api/presentations/'+slug+'/slides',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({slides})});}finally{setTimeout(()=>el.classList.remove('show'),1200);}
-  },800);
-}
 
 /* ── LAYOUT SIZING ── */
 function resizeFrame() {
@@ -1438,7 +1413,81 @@ document.getElementById('ep-delete').addEventListener('click', () => {
 });
 
 /* ── INIT ── */
-showSlide(0);
+const slug = location.pathname.split('/edit/')[1];
+let saveTimer = null;
+
+function saveSlides() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    const el = document.getElementById('editor-saving') || document.createElement('div');
+    el.classList.add('show');
+    try {
+      const r = await fetch('/api/presentations/' + slug + '/slides', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({slides})
+      });
+      const d = await r.json();
+      if (!d.ok) console.error('Save failed:', d);
+    } catch(e) {
+      console.error('Save error:', e);
+    } finally {
+      setTimeout(() => el.classList.remove('show'), 1200);
+    }
+  }, 800);
+}
+
+async function loadFromServer() {
+  try {
+    const [sr, mr] = await Promise.all([
+      fetch('/api/presentations/' + slug + '/slides'),
+      fetch('/api/presentations/' + slug)
+    ]);
+    if (!sr.ok) { alert('Presentation not found or access denied'); return; }
+    const serverSlides = await sr.json();
+    const meta = await mr.json();
+    document.title = 'Edit: ' + meta.title + ' — Clinic';
+    slides = serverSlides.length ? serverSlides : defaultSlides;
+    renderSlides();
+    loadServerClipList();
+  } catch(e) {
+    console.error('Load error:', e);
+    slides = defaultSlides;
+    renderSlides();
+  }
+}
+
+async function loadServerClipList() {
+  try {
+    const r = await fetch('/api/presentations/' + slug + '/videos');
+    const vids = await r.json();
+    const ep = document.getElementById('ep-scroll');
+    if (!ep || !vids.length) return;
+    const clipDiv = document.createElement('div');
+    clipDiv.style.cssText = 'border-top:1px solid rgba(255,255,255,0.08);margin-top:12px;padding-top:12px;';
+    clipDiv.innerHTML = '<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Video Clips</div>';
+    vids.forEach(v => {
+      const mb = (v.size/1024/1024).toFixed(0);
+      const url = v.scope === 'shared' ? '/videos/shared/' + v.filename : '/videos/p/' + slug + '/' + v.filename;
+      const item = document.createElement('div');
+      item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:rgba(255,255,255,0.7);';
+      item.innerHTML = '&#127916; <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + v.original_name + '</span><span style="font-size:10px;color:rgba(255,255,255,0.3);">' + mb + 'MB</span>';
+      item.addEventListener('mouseover', () => item.style.background = 'rgba(255,255,255,0.06)');
+      item.addEventListener('mouseout', () => item.style.background = '');
+      item.addEventListener('click', () => {
+        const vid = document.getElementById('video-el');
+        if (!vid) return;
+        document.getElementById('drop-overlay').style.display = 'none';
+        vid.src = url;
+        setView(true);
+      });
+      clipDiv.appendChild(item);
+    });
+    ep.appendChild(clipDiv);
+  } catch(e) { /* no clips, no problem */ }
+}
+
+loadFromServer();
 resizeFrame();
 
 </script>
