@@ -249,12 +249,19 @@ function setView(wantVideo){
 function advanceNext(){
   const slide=slides[currentSlide];
   if(!slide)return;
-  if(slide.type==="video"&&showingVideo){setView(false);return;}
+  const order=(slide.data&&slide.data.vidOrder)||"video";
+  if(slide.type==="video"){
+    if(order==="video"&&showingVideo){setView(false);return;}
+    if(order==="situation"&&!showingVideo){setView(true);return;}
+  }
   if(slide.type==="casebook"&&cbPhase===0){cbPhase=1;setView(false);return;}
   if(currentSlide<slides.length-1){
     currentSlide++;cbPhase=0;
     showSlide(currentSlide);
-    setView(slides[currentSlide].type==="video");
+    const s=slides[currentSlide];
+    const nextOrder=(s&&s.data&&s.data.vidOrder)||"video";
+    if(s&&s.type==="video"){setView(nextOrder==="video");}
+    else{setView(false);}
   }
 }
 

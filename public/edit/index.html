@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Editor — Clinic</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -406,9 +405,6 @@ html, body {
   <div class="tb-sep"></div>
   <button class="tb-btn" id="tb-video-toggle"><i class="ti ti-video"></i> Video</button>
   <div class="tb-sep"></div>
-  <button class="tb-btn" id="tb-export-png"><i class="ti ti-download"></i> Export PNG</button>
-  <button class="tb-btn" id="tb-export-all"><i class="ti ti-packages"></i> Export All</button>
-  <div class="tb-sep"></div>
   <button class="tb-btn" id="tb-edit"><i class="ti ti-layout-sidebar-right"></i> Edit Slides</button>
   <div style="margin-left:auto; display:flex; gap:4px; align-items:center;">
     <span class="kbd">Space</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin:0 4px;">play</span>
@@ -473,6 +469,13 @@ html, body {
       <div class="ep-field"><label>Situation eyebrow <span style="opacity:.5;font-weight:400;">(label above body)</span></label><input type="text" id="ep-vid-eyebrow" placeholder="e.g. Situation"></div>
       <div class="ep-field"><label>Situation body</label><textarea id="ep-vid-body" placeholder="Describe the play..." style="height:80px;"></textarea></div>
       <div class="ep-field"><label>Call-to-action badge</label><input type="text" id="ep-vid-cta" placeholder="e.g. What&#39;s your call?"></div>
+      <div class="ep-field">
+        <label>Show first <span style="opacity:.5;font-weight:400;">(what displays when slide opens)</span></label>
+        <select id="ep-vid-order">
+          <option value="video">Video first — then advance to situation</option>
+          <option value="situation">Situation text first — then advance to video</option>
+        </select>
+      </div>
       <div class="ep-field">
         <label>Attached video clip <span style="opacity:.5;font-weight:400;">(auto-loads in viewer)</span></label>
         <select id="ep-vid-clip" style="width:100%;">
@@ -1021,18 +1024,22 @@ document.getElementById('tb-next').addEventListener('click', advanceNext);
 
 function advanceNext() {
   const slide = slides[currentSlide];
-  if (slide.type === 'video' && showingVideo) {
-    setView(false);
-  } else if (slide.type === 'casebook' && cbPhase === 0) {
-    cbPhase = 1;
-    setView(false);
-  } else if (currentSlide < slides.length - 1) {
+  const order = (slide.data && slide.data.vidOrder) || 'video';
+  if (slide.type === 'video') {
+    // video-first: video -> situation -> next slide
+    if (order === 'video' && showingVideo) { setView(false); return; }
+    // situation-first: situation -> video -> next slide
+    if (order === 'situation' && !showingVideo) { setView(true); return; }
+  }
+  if (slide.type === 'casebook' && cbPhase === 0) { cbPhase = 1; setView(false); return; }
+  if (currentSlide < slides.length - 1) {
     currentSlide++;
     cbPhase = 0;
     const s = slides[currentSlide];
+    const nextOrder = (s.data && s.data.vidOrder) || 'video';
     if (s.type === 'video') {
-      showingVideo = true;
-      setView(true);
+      showingVideo = nextOrder === 'video';
+      setView(showingVideo);
     } else {
       showingVideo = false;
       setView(false);
@@ -1116,43 +1123,6 @@ function toast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-async function exportSlide(idx) {
-  const slide = slides[idx];
-  const frame = document.getElementById('slide-frame');
-  const w = parseInt(frame.style.width);
-  const h = parseInt(frame.style.height);
-
-  const tmp = document.createElement('div');
-  tmp.style.cssText = `position:fixed;left:-9999px;top:0;width:${w}px;height:${h}px;`;
-  document.body.appendChild(tmp);
-  renderSlideContent(slide, tmp);
-
-  try {
-    const canvas = await html2canvas(tmp, { width: w, height: h, scale: 2, backgroundColor: null, logging: false });
-    const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/png');
-    a.download = `slide-${String(idx+1).padStart(2,'0')}-${slide.title.replace(/[^a-z0-9]/gi,'_').toLowerCase()}.png`;
-    a.click();
-  } finally {
-    document.body.removeChild(tmp);
-  }
-}
-
-document.getElementById('tb-export-png').addEventListener('click', async () => {
-  toast('Exporting current slide…');
-  await exportSlide(currentSlide);
-  toast('Saved!');
-});
-
-document.getElementById('tb-export-all').addEventListener('click', async () => {
-  toast(`Exporting ${slides.length} slides…`);
-  for (let i = 0; i < slides.length; i++) {
-    await exportSlide(i);
-    await new Promise(r => setTimeout(r, 200));
-  }
-  toast('All slides exported!');
-});
-
 /* ── EDITOR ── */
 document.getElementById('tb-edit').addEventListener('click', () => {
   document.getElementById('editor-panel').classList.toggle('open');
@@ -1164,15 +1134,37 @@ document.getElementById('ep-close').addEventListener('click', () => {
 function renderEditorList() {
   const list = document.getElementById('ep-slide-list');
   list.innerHTML = slides.map((sl,i) => `
-    <div class="ep-thumb${i===currentSlide?' active':''}" data-idx="${i}">
+    <div class="ep-thumb${i===currentSlide?' active':''}" data-idx="${i}" draggable="true">
+      <span style="cursor:grab;color:rgba(255,255,255,0.2);font-size:14px;margin-right:4px;user-select:none;">&#8942;&#8942;</span>
       <span class="ep-thumb-num">${i+1}</span>
       <span class="ep-type-dot dot-${sl.type}"></span>
       <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sl.title}</span>
     </div>
   `).join('');
+
+  let dragIdx = null;
   list.querySelectorAll('.ep-thumb').forEach(t => {
     t.addEventListener('click', () => {
       currentSlide = parseInt(t.dataset.idx);
+      showSlide(currentSlide);
+    });
+    t.addEventListener('dragstart', e => {
+      dragIdx = parseInt(t.dataset.idx);
+      t.style.opacity = '0.5';
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    t.addEventListener('dragend', () => { t.style.opacity = ''; dragIdx = null; });
+    t.addEventListener('dragover', e => { e.preventDefault(); t.style.background = 'rgba(242,101,34,0.15)'; });
+    t.addEventListener('dragleave', () => { t.style.background = ''; });
+    t.addEventListener('drop', e => {
+      e.preventDefault();
+      t.style.background = '';
+      const dropIdx = parseInt(t.dataset.idx);
+      if (dragIdx === null || dragIdx === dropIdx) return;
+      const moved = slides.splice(dragIdx, 1)[0];
+      slides.splice(dropIdx, 0, moved);
+      currentSlide = dropIdx;
+      saveSlides();
       showSlide(currentSlide);
     });
   });
@@ -1204,6 +1196,7 @@ function populateEditor() {
     g('ep-vid-eyebrow').value = d.vidEyebrow || 'Situation';
     g('ep-vid-body').value = d.vidBody || s.body || '';
     g('ep-vid-cta').value = d.vidCta || "What's your call?";
+    g('ep-vid-order').value = d.vidOrder || 'video';
     populateClipPicker(d.vidClipUrl || '');
   } else if (s.type === 'reveal') {
     g('ep-rev-eyebrow').value = d.revEyebrow || 'The Call · Answer';
@@ -1359,6 +1352,7 @@ g('ep-save').addEventListener('click', () => {
       vidEyebrow: g('ep-vid-eyebrow').value,
       vidBody: g('ep-vid-body').value,
       vidCta: g('ep-vid-cta').value,
+      vidOrder: g('ep-vid-order').value,
       vidClipUrl: g('ep-vid-clip').value || '',
     };
     title = g('ep-vid-title').value;
