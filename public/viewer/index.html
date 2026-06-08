@@ -250,9 +250,10 @@ function advanceNext(){
   const slide=slides[currentSlide];
   if(!slide)return;
   const order=(slide.data&&slide.data.vidOrder)||"video";
+  const showText=slide.data?slide.data.vidShowText!==false:true;
   if(slide.type==="video"){
-    if(order==="video"&&showingVideo){setView(false);return;}
-    if(order==="situation"&&!showingVideo){setView(true);return;}
+    if(order==="video"&&showingVideo&&showText){setView(false);return;}
+    if(order==="situation"&&!showingVideo&&showText){setView(true);return;}
   }
   if(slide.type==="casebook"&&cbPhase===0){cbPhase=1;setView(false);return;}
   if(currentSlide<slides.length-1){

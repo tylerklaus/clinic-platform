@@ -470,11 +470,14 @@ html, body {
       <div class="ep-field"><label>Situation body</label><textarea id="ep-vid-body" placeholder="Describe the play..." style="height:80px;"></textarea></div>
       <div class="ep-field"><label>Call-to-action badge</label><input type="text" id="ep-vid-cta" placeholder="e.g. What&#39;s your call?"></div>
       <div class="ep-field">
-        <label>Show first <span style="opacity:.5;font-weight:400;">(what displays when slide opens)</span></label>
-        <select id="ep-vid-order">
-          <option value="video">Video first — then advance to situation</option>
-          <option value="situation">Situation text first — then advance to video</option>
-        </select>
+        <label style="text-transform:none;font-size:12px;font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="ep-vid-video-first" style="width:auto;accent-color:var(--gold);">
+          Show video first (unchecked = situation text first)
+        </label>
+        <label style="text-transform:none;font-size:12px;font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px;">
+          <input type="checkbox" id="ep-vid-show-text" style="width:auto;accent-color:var(--gold);" checked>
+          Show situation text slide
+        </label>
       </div>
       <div class="ep-field">
         <label>Attached video clip <span style="opacity:.5;font-weight:400;">(auto-loads in viewer)</span></label>
@@ -1025,11 +1028,12 @@ document.getElementById('tb-next').addEventListener('click', advanceNext);
 function advanceNext() {
   const slide = slides[currentSlide];
   const order = (slide.data && slide.data.vidOrder) || 'video';
+  const showText = slide.data ? slide.data.vidShowText !== false : true;
   if (slide.type === 'video') {
-    // video-first: video -> situation -> next slide
-    if (order === 'video' && showingVideo) { setView(false); return; }
+    // video-first: video -> situation (if enabled) -> next slide
+    if (order === 'video' && showingVideo && showText) { setView(false); return; }
     // situation-first: situation -> video -> next slide
-    if (order === 'situation' && !showingVideo) { setView(true); return; }
+    if (order === 'situation' && !showingVideo && showText) { setView(true); return; }
   }
   if (slide.type === 'casebook' && cbPhase === 0) { cbPhase = 1; setView(false); return; }
   if (currentSlide < slides.length - 1) {
@@ -1196,7 +1200,8 @@ function populateEditor() {
     g('ep-vid-eyebrow').value = d.vidEyebrow || 'Situation';
     g('ep-vid-body').value = d.vidBody || s.body || '';
     g('ep-vid-cta').value = d.vidCta || "What's your call?";
-    g('ep-vid-order').value = d.vidOrder || 'video';
+    g('ep-vid-video-first').checked = d.vidOrder !== 'situation';
+    g('ep-vid-show-text').checked = d.vidShowText !== false;
     populateClipPicker(d.vidClipUrl || '');
   } else if (s.type === 'reveal') {
     g('ep-rev-eyebrow').value = d.revEyebrow || 'The Call · Answer';
@@ -1352,7 +1357,8 @@ g('ep-save').addEventListener('click', () => {
       vidEyebrow: g('ep-vid-eyebrow').value,
       vidBody: g('ep-vid-body').value,
       vidCta: g('ep-vid-cta').value,
-      vidOrder: g('ep-vid-order').value,
+      vidOrder: g('ep-vid-video-first').checked ? 'video' : 'situation',
+      vidShowText: g('ep-vid-show-text').checked,
       vidClipUrl: g('ep-vid-clip').value || '',
     };
     title = g('ep-vid-title').value;
