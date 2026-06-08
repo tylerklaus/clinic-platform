@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Officials Clinic</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#1B1B2F;--gold:#F26522;--bg:#0f0f1a;--surface:#1e1e32;--border:rgba(255,255,255,0.08);--text:#f0f0f0;--text2:rgba(255,255,255,0.55)}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+header{background:var(--navy);border-bottom:3px solid var(--gold);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:18px;font-weight:700;color:#fff;letter-spacing:0.5px}
+.header-right{display:flex;align-items:center;gap:16px}
+.btn{padding:8px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:opacity 0.15s}
+.btn-primary{background:var(--gold);color:var(--navy)}
+.btn-ghost{background:rgba(255,255,255,0.07);color:var(--text);border:1px solid var(--border)}
+.btn:hover{opacity:0.85}
+main{max-width:1100px;margin:0 auto;padding:48px 24px}
+.hero{margin-bottom:48px}
+.hero h2{font-size:36px;font-weight:800;color:#fff;line-height:1.1;margin-bottom:8px}
+.hero p{font-size:16px;color:var(--text2)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;transition:border-color 0.15s,transform 0.15s}
+.card:hover{border-color:var(--gold);transform:translateY(-2px)}
+.card-thumb{height:160px;background:var(--navy);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.card-thumb-text{font-size:42px;font-weight:900;color:rgba(255,255,255,0.06);text-transform:uppercase;letter-spacing:-1px;position:absolute;right:16px;bottom:-10px;font-size:80px}
+.card-thumb-title{position:absolute;bottom:16px;left:16px;right:16px;font-size:20px;font-weight:800;color:#fff;line-height:1.1}
+.card-thumb-badge{position:absolute;top:12px;right:12px;background:var(--gold);color:var(--navy);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:0.5px}
+.card-body{padding:16px}
+.card-desc{font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:12px;min-height:36px}
+.card-meta{font-size:11px;color:rgba(255,255,255,0.3);display:flex;align-items:center;gap:12px}
+.empty{text-align:center;padding:80px 20px;color:var(--text2);grid-column:1/-1}
+.empty h3{font-size:24px;color:#fff;margin-bottom:8px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity 0.2s}
+.overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;width:100%;max-width:400px;position:relative}
+.modal h3{font-size:20px;font-weight:700;margin-bottom:6px}
+.modal p{font-size:13px;color:var(--text2);margin-bottom:20px}
+.modal input{width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.06);color:#fff;font-size:15px;outline:none;margin-bottom:12px}
+.modal input:focus{border-color:var(--gold)}
+.modal-err{font-size:12px;color:#ff6b6b;margin-bottom:10px;min-height:18px}
+.modal-btns{display:flex;gap:10px}
+.modal-btns .btn{flex:1;justify-content:center}
+.close-btn{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚡ Officials Clinic</h1>
+  <div class="header-right">
+    <span id="user-info" style="font-size:13px;color:rgba(255,255,255,0.45);"></span>
+    <a id="admin-link" href="/admin" class="btn btn-ghost" style="display:none;">Admin</a>
+    <a id="login-btn" href="/auth/login" class="btn btn-ghost">Sign In</a>
+    <a id="logout-btn" href="/auth/logout" class="btn btn-ghost" style="display:none;">Sign Out</a>
+  </div>
+</header>
+<main>
+  <div class="hero"><h2>Clinic Presentations</h2><p>Select a presentation to begin</p></div>
+  <div class="grid" id="grid"><div style="color:rgba(255,255,255,0.3);padding:40px;">Loading...</div></div>
+</main>
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal()">×</button>
+    <h3 id="modal-title">Enter Password</h3>
+    <p>This presentation is password protected.</p>
+    <input type="password" id="modal-pw" placeholder="Password" onkeydown="if(event.key==='Enter')submitPw()">
+    <div class="modal-err" id="modal-err"></div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitPw()">Enter</button>
+    </div>
+  </div>
+</div>
+<script>
+let pendingSlug=null,me={};
+async function init(){
+  const [pr,mr]=await Promise.all([fetch('/api/presentations'),fetch('/api/me')]);
+  const pres=await pr.json(); me=await mr.json();
+  if(me.loggedIn){
+    document.getElementById('user-info').textContent=me.user.name||me.user.email;
+    document.getElementById('login-btn').style.display='none';
+    document.getElementById('logout-btn').style.display='';
+    if(['admin','creator'].includes(me.user.role))document.getElementById('admin-link').style.display='';
+  }
+  const grid=document.getElementById('grid');
+  if(!pres.length){grid.innerHTML='<div class="empty"><h3>No presentations yet</h3><p>Sign in as admin to create one.</p></div>';return;}
+  grid.innerHTML=pres.map(p=>{
+    const d=new Date(p.updated_at*1000).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const canEdit=me.loggedIn&&['admin','creator'].includes(me.user.role);
+    return `<div class="card" onclick="open_p('${p.slug}',${!!p.has_password},'${p.title.replace(/'/g,"\\'")}')">
+      <div class="card-thumb" style="background:var(--navy)">
+        <div class="card-thumb-text">${p.title.substring(0,3).toUpperCase()}</div>
+        <div class="card-thumb-title">${p.title}</div>
+        ${p.has_password?'<div class="card-thumb-badge">🔒 Protected</div>':''}
+      </div>
+      <div class="card-body">
+        <div class="card-desc">${p.description||'Click to view.'}</div>
+        <div class="card-meta"><span>Updated ${d}</span>${canEdit?`<a href="/edit/${p.slug}" onclick="event.stopPropagation()" style="color:var(--gold);text-decoration:none;margin-left:auto;">Edit ›</a>`:''}</div>
+      </div></div>`;
+  }).join('');
+}
+function open_p(slug,hasPw,title){
+  if(!hasPw||(me.unlocked&&me.unlocked.includes(slug))){window.location.href='/p/'+slug;return;}
+  pendingSlug=slug;
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-err').textContent='';
+  document.getElementById('modal-pw').value='';
+  document.getElementById('overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('modal-pw').focus(),100);
+}
+async function submitPw(){
+  const pw=document.getElementById('modal-pw').value;
+  if(!pw)return;
+  const r=await fetch('/api/presentations/'+pendingSlug+'/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
+  const d=await r.json();
+  if(d.ok){window.location.href=d.redirect;}
+  else{document.getElementById('modal-err').textContent='Incorrect password';}
+}
+function closeModal(){document.getElementById('overlay').classList.remove('open');pendingSlug=null;}
+document.getElementById('overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+init();
+</script>
+</body></html>

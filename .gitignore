@@ -1,0 +1,17 @@
+# Environment — never commit secrets
+.env
+
+# App data — lives on server only
+data/
+videos/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Mac
+.DS_Store
+
+# Editor
+.vscode/
+*.swp

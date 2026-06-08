@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clinic Viewer</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#1B1B2F;--gold:#F26522}
+html,body{height:100%;background:#000;color:#fff;font-family:"Segoe UI",system-ui,sans-serif;overflow:hidden}
+#deck{position:fixed;inset:0 0 56px 0;background:#000}
+#slide-canvas{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+#slide-frame{position:relative;background:#000;overflow:hidden}
+#video-slide{position:absolute;inset:0;background:#000;display:none;flex-direction:column}
+#video-slide.active{display:flex}
+#video-el{width:100%;height:100%;object-fit:contain;background:#000;display:block}
+#drop-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#0a0a0a;color:#666;font-size:15px}
+#drop-overlay i{font-size:56px;color:#333}
+#drop-overlay label{padding:8px 20px;border:1px solid #333;border-radius:8px;font-size:13px;cursor:pointer;color:#aaa}
+#drop-overlay label:hover{border-color:var(--gold);color:var(--gold)}
+#file-input{display:none}
+#video-controls{position:absolute;bottom:0;left:0;right:0;display:flex;align-items:center;gap:8px;padding:8px 14px;background:linear-gradient(transparent,rgba(0,0,0,0.85));opacity:0;transition:opacity 0.2s;pointer-events:none}
+#video-slide:hover #video-controls{opacity:1;pointer-events:all}
+.vc-btn{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:15px;flex-shrink:0}
+.vc-btn:hover{background:rgba(255,255,255,0.22)}
+.vc-btn.active{background:rgba(242,101,34,0.3);border-color:var(--gold);color:var(--gold)}
+#vc-scrubber{flex:1;height:4px;-webkit-appearance:none;appearance:none;background:rgba(255,255,255,0.25);border-radius:2px;cursor:pointer;outline:none}
+#vc-scrubber::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--gold);cursor:pointer}
+#vc-timecode{font-family:monospace;font-size:11px;color:rgba(255,255,255,0.7);min-width:80px;text-align:right}
+#vc-speed{font-size:11px;height:28px;border-radius:6px;padding:0 6px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.5);color:#fff;cursor:pointer}
+#content-slide{position:absolute;inset:0;display:none;background:#fff;color:#111}
+#content-slide.active{display:block}
+#slide-inner{width:100%;height:100%;position:relative}
+#toolbar{position:fixed;bottom:0;left:0;right:0;height:56px;background:var(--navy);display:flex;align-items:center;padding:0 16px;gap:8px;border-top:2px solid var(--gold);z-index:100}
+.tb-btn{display:flex;align-items:center;justify-content:center;height:36px;padding:0 12px;border-radius:7px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.85);cursor:pointer;font-size:13px;gap:6px;white-space:nowrap;transition:background 0.1s;font-family:inherit;text-decoration:none}
+.tb-btn:hover{background:rgba(255,255,255,0.14)}
+.tb-btn.primary{background:var(--gold);border-color:var(--gold);color:var(--navy);font-weight:600}
+#tb-slide-indicator{font-size:12px;color:rgba(255,255,255,0.4);font-family:monospace;min-width:60px;text-align:center}
+#tb-slide-title{font-size:13px;color:rgba(255,255,255,0.6);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tb-sep{width:1px;height:28px;background:rgba(255,255,255,0.12);flex-shrink:0}
+.kbd{display:inline-block;font-family:monospace;font-size:10px;padding:1px 5px;border-radius:3px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.45);margin:0 1px}
+#video-library{position:fixed;top:0;right:-360px;width:340px;bottom:56px;background:#1a1a2e;border-left:1px solid rgba(255,255,255,0.1);transition:right 0.25s;z-index:200;display:flex;flex-direction:column}
+#video-library.open{right:0}
+#vl-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1);background:var(--navy)}
+#vl-header h2{font-size:14px;font-weight:600}
+#vl-list{flex:1;overflow-y:auto;padding:8px}
+.vl-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:background 0.1s}
+.vl-item:hover{background:rgba(255,255,255,0.06)}
+.vl-item.active{background:rgba(242,101,34,0.15);border:1px solid rgba(242,101,34,0.3)}
+.vl-icon{width:36px;height:36px;border-radius:6px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.vl-name{font-size:12px;color:rgba(255,255,255,0.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vl-meta{font-size:10px;color:rgba(255,255,255,0.35);margin-top:2px}
+.vl-scope{font-size:9px;padding:1px 6px;border-radius:3px;margin-left:4px}
+.vl-scope.shared{background:rgba(242,101,34,0.2);color:var(--gold)}
+.vl-scope.private{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.4)}
+</style>
+</head>
+<body>
+<div id="deck">
+  <div id="slide-canvas"><div id="slide-frame">
+    <div id="video-slide" class="active">
+      <video id="video-el" preload="auto"></video>
+      <div id="drop-overlay">
+        <i class="ti ti-movie"></i>
+        <div>Select a clip from the library or drop a local file</div>
+        <label for="file-input"><i class="ti ti-folder-open"></i> Browse local file</label>
+        <input type="file" id="file-input" accept="video/*">
+      </div>
+      <div id="video-controls">
+        <button class="vc-btn" id="vc-back5"><i class="ti ti-player-skip-back"></i></button>
+        <button class="vc-btn" id="vc-prevframe"><i class="ti ti-chevron-left"></i></button>
+        <button class="vc-btn" id="vc-play"><i class="ti ti-player-play"></i></button>
+        <button class="vc-btn" id="vc-nextframe"><i class="ti ti-chevron-right"></i></button>
+        <button class="vc-btn" id="vc-fwd5"><i class="ti ti-player-skip-forward"></i></button>
+        <input type="range" id="vc-scrubber" min="0" max="10000" value="0">
+        <span id="vc-timecode">00:00:00.000</span>
+        <button class="vc-btn" id="vc-loop"><i class="ti ti-repeat"></i></button>
+        <select id="vc-speed">
+          <option value="0.1">0.1x</option><option value="0.25">0.25x</option>
+          <option value="0.5">0.5x</option><option value="0.75">0.75x</option>
+          <option value="1" selected>1x</option><option value="1.5">1.5x</option>
+          <option value="2">2x</option>
+        </select>
+      </div>
+    </div>
+    <div id="content-slide"><div id="slide-inner"></div></div>
+  </div></div>
+</div>
+
+<div id="toolbar">
+  <button class="tb-btn" id="tb-prev"><i class="ti ti-chevron-left"></i> Prev</button>
+  <button class="tb-btn primary" id="tb-next">Next <i class="ti ti-chevron-right"></i></button>
+  <div class="tb-sep"></div>
+  <span id="tb-slide-indicator">1 / 1</span>
+  <span id="tb-slide-title"></span>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="tb-video-toggle"><i class="ti ti-video"></i> Video</button>
+  <button class="tb-btn" id="tb-library"><i class="ti ti-movie"></i> Clips</button>
+  <div class="tb-sep"></div>
+  <a href="/" class="tb-btn"><i class="ti ti-home"></i></a>
+  <div style="margin-left:auto;display:flex;gap:4px;align-items:center;">
+    <span class="kbd">Space</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin:0 4px;">play</span>
+    <span class="kbd">[</span><span class="kbd">]</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin:0 4px;">slides</span>
+  </div>
+</div>
+
+<div id="video-library">
+  <div id="vl-header">
+    <h2>Video Clips</h2>
+    <button class="tb-btn" id="vl-close" style="padding:0 10px;height:30px;font-size:12px;"><i class="ti ti-x"></i></button>
+  </div>
+  <div id="vl-list"><div style="padding:20px;font-size:13px;color:rgba(255,255,255,0.3);">Loading clips...</div></div>
+</div>
+
+<script src="/assets/renderer.js"></script>
+<script>
+const slug=location.pathname.split("/p/")[1];
+let slides=[],currentSlide=0,showingVideo=true,looping=false,cbPhase=0;
+let mechImageSrc={},titleLogoSrc=null;
+const video=document.getElementById("video-el");
+
+async function init(){
+  const[sr,mr]=await Promise.all([
+    fetch("/api/presentations/"+slug+"/slides"),
+    fetch("/api/presentations/"+slug)
+  ]);
+  if(!sr.ok){document.body.innerHTML="<div style="color:#fff;padding:40px;font-size:20px;">Presentation not found</div>";return;}
+  slides=await sr.json();
+  const meta=await mr.json();
+  document.title=meta.title+" - Clinic";
+  showSlide(0);setView(true);
+  loadClips();
+}
+
+async function loadClips(){
+  const r=await fetch("/api/presentations/"+slug+"/videos");
+  const vids=await r.json();
+  const list=document.getElementById("vl-list");
+  if(!vids.length){list.innerHTML="<div style="padding:20px;font-size:13px;color:rgba(255,255,255,0.3);">No clips attached yet.</div>";return;}
+  list.innerHTML=vids.map(v=>{
+    const mb=(v.size/1024/1024).toFixed(0);
+    const url=v.scope==="shared"?"/videos/shared/"+v.filename:"/videos/p/"+slug+"/"+v.filename;
+    return "<div class="vl-item" onclick="loadUrl('"+url+"',this)"><div class="vl-icon"><i class="ti ti-movie"></i></div><div style="flex:1;min-width:0"><div class="vl-name">"+v.original_name+"</div><div class="vl-meta">"+mb+"MB<span class="vl-scope "+v.scope+"">"+v.scope+"</span></div></div></div>";
+  }).join("");
+}
+
+function loadUrl(url,el){
+  document.getElementById("drop-overlay").style.display="none";
+  video.src=url;
+  document.querySelectorAll(".vl-item").forEach(i=>i.classList.remove("active"));
+  if(el)el.classList.add("active");
+  document.getElementById("video-library").classList.remove("open");
+  setView(true);
+}
+
+document.getElementById("file-input").addEventListener("change",e=>{
+  if(!e.target.files[0])return;
+  document.getElementById("drop-overlay").style.display="none";
+  video.src=URL.createObjectURL(e.target.files[0]);
+});
+document.getElementById("video-slide").addEventListener("dragover",e=>e.preventDefault());
+document.getElementById("video-slide").addEventListener("drop",e=>{
+  e.preventDefault();
+  if(!e.dataTransfer.files[0])return;
+  document.getElementById("drop-overlay").style.display="none";
+  video.src=URL.createObjectURL(e.dataTransfer.files[0]);
+});
+
+video.addEventListener("timeupdate",()=>{
+  const t=video.currentTime,d=video.duration||1;
+  document.getElementById("vc-scrubber").value=Math.round((t/d)*10000);
+  const h=Math.floor(t/3600),m=Math.floor((t%3600)/60),s=Math.floor(t%60),ms=Math.floor((t%1)*1000);
+  document.getElementById("vc-timecode").textContent=String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")+"."+String(ms).padStart(3,"0");
+});
+video.addEventListener("play",()=>document.getElementById("vc-play").innerHTML="<i class="ti ti-player-pause"></i>");
+video.addEventListener("pause",()=>document.getElementById("vc-play").innerHTML="<i class="ti ti-player-play"></i>");
+video.addEventListener("ended",()=>{if(looping){video.currentTime=0;video.play();}});
+document.getElementById("vc-play").addEventListener("click",()=>{video.src&&(video.paused?video.play():video.pause());});
+document.getElementById("vc-prevframe").addEventListener("click",()=>{video.pause();video.currentTime=Math.max(0,video.currentTime-1/FPS);});
+document.getElementById("vc-nextframe").addEventListener("click",()=>{video.pause();video.currentTime=Math.min(video.duration||0,video.currentTime+1/FPS);});
+document.getElementById("vc-back5").addEventListener("click",()=>{video.currentTime=Math.max(0,video.currentTime-5);});
+document.getElementById("vc-fwd5").addEventListener("click",()=>{video.currentTime=Math.min(video.duration||0,video.currentTime+5);});
+document.getElementById("vc-loop").addEventListener("click",()=>{looping=!looping;video.loop=looping;document.getElementById("vc-loop").classList.toggle("active",looping);});
+document.getElementById("vc-speed").addEventListener("change",e=>{video.playbackRate=parseFloat(e.target.value);});
+document.getElementById("vc-scrubber").addEventListener("input",e=>{if(video.duration)video.currentTime=(e.target.value/10000)*video.duration;});
+
+function resizeFrame(){
+  const deck=document.getElementById("deck");
+  const W=deck.offsetWidth,H=deck.offsetHeight,r=16/9;
+  let w=W,h=W/r;if(h>H){h=H;w=H*r;}
+  const f=document.getElementById("slide-frame");
+  f.style.width=w+"px";f.style.height=h+"px";
+}
+window.addEventListener("resize",resizeFrame);resizeFrame();
+
+function showSlide(idx){
+  currentSlide=Math.max(0,Math.min(slides.length-1,idx));
+  const s=slides[currentSlide];
+  document.getElementById("tb-slide-indicator").textContent=(currentSlide+1)+" / "+slides.length;
+  document.getElementById("tb-slide-title").textContent=s.title||"";
+}
+
+function setView(wantVideo){
+  const slide=slides[currentSlide];
+  if(slide&&slide.type!=="video")wantVideo=false;
+  showingVideo=wantVideo;
+  document.getElementById("video-slide").classList.toggle("active",wantVideo);
+  document.getElementById("content-slide").classList.toggle("active",!wantVideo);
+  if(!wantVideo&&slide){
+    const inner=document.getElementById("slide-inner");
+    const f=document.getElementById("slide-frame");
+    inner.style.width=f.style.width;inner.style.height=f.style.height;
+    renderSlideContent(slide,inner);
+  }
+}
+
+function advanceNext(){
+  const slide=slides[currentSlide];
+  if(slide.type==="video"&&showingVideo){setView(false);return;}
+  if(slide.type==="casebook"&&cbPhase===0){cbPhase=1;setView(false);return;}
+  if(currentSlide<slides.length-1){currentSlide++;cbPhase=0;showSlide(currentSlide);setView(slides[currentSlide].type==="video");}
+}
+
+document.getElementById("tb-next").addEventListener("click",advanceNext);
+document.getElementById("tb-prev").addEventListener("click",()=>{
+  if(slides[currentSlide].type==="video"&&showingVideo){setView(false);return;}
+  if(slides[currentSlide].type==="casebook"&&cbPhase===1){cbPhase=0;setView(false);return;}
+  if(currentSlide>0){currentSlide--;cbPhase=0;showSlide(currentSlide);setView(slides[currentSlide].type==="video");}
+});
+document.getElementById("tb-video-toggle").addEventListener("click",()=>setView(!showingVideo));
+document.getElementById("tb-library").addEventListener("click",()=>document.getElementById("video-library").classList.toggle("open"));
+document.getElementById("vl-close").addEventListener("click",()=>document.getElementById("video-library").classList.remove("open"));
+
+document.addEventListener("keydown",e=>{
+  const tag=document.activeElement.tagName;
+  if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT")return;
+  if(e.code==="Space"){e.preventDefault();document.getElementById("vc-play").click();}
+  if(e.code==="ArrowLeft"&&!e.shiftKey){e.preventDefault();document.getElementById("vc-prevframe").click();}
+  if(e.code==="ArrowRight"&&!e.shiftKey){e.preventDefault();document.getElementById("vc-nextframe").click();}
+  if(e.code==="ArrowLeft"&&e.shiftKey){e.preventDefault();document.getElementById("vc-back5").click();}
+  if(e.code==="ArrowRight"&&e.shiftKey){e.preventDefault();document.getElementById("vc-fwd5").click();}
+  if(e.key==="["){e.preventDefault();document.getElementById("tb-prev").click();}
+  if(e.key==="]"){e.preventDefault();advanceNext();}
+  if(e.key==="l"||e.key==="L")document.getElementById("vc-loop").click();
+});
+
+init();
+</script>
+</body>
+</html>
