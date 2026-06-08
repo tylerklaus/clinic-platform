@@ -11,8 +11,8 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(
 header{background:var(--navy);border-bottom:3px solid var(--gold);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between}
 header h1{font-size:18px;font-weight:700}
 .header-right{display:flex;align-items:center;gap:16px;font-size:13px;color:var(--text2)}
-nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;display:flex;gap:0}
-.nav-tab{padding:14px 20px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:color 0.15s}
+nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;display:flex}
+.nav-tab{padding:14px 20px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent}
 .nav-tab:hover{color:var(--text)}
 .nav-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
 main{max-width:1100px;margin:0 auto;padding:32px 24px}
@@ -24,12 +24,11 @@ main{max-width:1100px;margin:0 auto;padding:32px 24px}
 .btn-ghost{background:rgba(255,255,255,0.07);color:var(--text);border:1px solid var(--border)}
 .btn-danger{background:rgba(224,80,80,0.15);color:var(--danger);border:1px solid rgba(224,80,80,0.3)}
 .btn:hover{opacity:0.85}
-.btn:disabled{opacity:0.4;cursor:not-allowed}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{text-align:left;padding:10px 14px;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border)}
 td{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle}
 tr:hover td{background:rgba(255,255,255,0.02)}
-.badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:0.3px}
+.badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase}
 .badge-admin{background:rgba(242,101,34,0.2);color:var(--gold)}
 .badge-creator{background:rgba(91,155,213,0.2);color:#7ab4e8}
 .badge-viewer{background:rgba(255,255,255,0.08);color:var(--text2)}
@@ -44,7 +43,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gold)}
 select option{background:var(--surface)}
 textarea{height:70px;resize:vertical;line-height:1.5}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px}
-.card h3{font-size:15px;font-weight:700;margin-bottom:16px;color:var(--text)}
+.card h3{font-size:15px;font-weight:700;margin-bottom:16px}
 .actions{display:flex;gap:8px;align-items:center}
 .slug{font-family:monospace;font-size:12px;color:var(--text2)}
 .upload-area{border:2px dashed var(--border);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:border-color 0.15s}
@@ -62,25 +61,24 @@ textarea{height:70px;resize:vertical;line-height:1.5}
 </head>
 <body>
 <header>
-  <h1>⚡ Clinic Admin</h1>
+  <h1>&#9889; Clinic Admin</h1>
   <div class="header-right">
     <span id="user-name"></span>
-    <a href="/" class="btn btn-ghost" style="font-size:12px;">← Home</a>
+    <a href="/" class="btn btn-ghost" style="font-size:12px;">&#8592; Home</a>
     <a href="/auth/logout" class="btn btn-ghost" style="font-size:12px;">Sign Out</a>
   </div>
 </header>
 <nav>
-  <div class="nav-tab active" onclick="switchTab('presentations')">Presentations</div>
-  <div class="nav-tab" onclick="switchTab('videos')">Shared Videos</div>
-  <div class="nav-tab" onclick="switchTab('users')">Users</div>
+  <div class="nav-tab active" id="tab-btn-presentations">Presentations</div>
+  <div class="nav-tab" id="tab-btn-videos">Shared Videos</div>
+  <div class="nav-tab" id="tab-btn-users">Users</div>
 </nav>
 <main>
 
-<!-- PRESENTATIONS TAB -->
 <div class="tab-panel active" id="tab-presentations">
   <div class="section-header">
     <h2>Presentations</h2>
-    <button class="btn btn-primary" onclick="showNewPresForm()">+ New Presentation</button>
+    <button class="btn btn-primary" id="btn-new-pres">+ New Presentation</button>
   </div>
   <div class="card" id="new-pres-form" style="display:none;">
     <h3>New Presentation</h3>
@@ -96,8 +94,8 @@ textarea{height:70px;resize:vertical;line-height:1.5}
       <div class="form-group full"><label>Description</label><textarea id="np-desc" placeholder="Short description shown on the landing page"></textarea></div>
     </div>
     <div style="display:flex;gap:10px;">
-      <button class="btn btn-primary" onclick="createPresentation()">Create</button>
-      <button class="btn btn-ghost" onclick="document.getElementById("new-pres-form").style.display="none"">Cancel</button>
+      <button class="btn btn-primary" id="btn-create-pres">Create</button>
+      <button class="btn btn-ghost" id="btn-cancel-pres">Cancel</button>
     </div>
   </div>
   <table id="pres-table">
@@ -106,24 +104,22 @@ textarea{height:70px;resize:vertical;line-height:1.5}
   </table>
 </div>
 
-<!-- SHARED VIDEOS TAB -->
 <div class="tab-panel" id="tab-videos">
   <div class="section-header"><h2>Shared Video Library</h2></div>
   <div class="card">
     <h3>Upload Shared Clip</h3>
     <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Shared clips are available to all presentations.</p>
-    <div class="upload-area" id="shared-drop" onclick="document.getElementById('shared-file').click()">
-      <div style="font-size:32px;">🎬</div>
+    <div class="upload-area" id="shared-drop">
+      <div style="font-size:32px;">&#127916;</div>
       <p>Drop a video file here or click to browse</p>
-      <p style="font-size:11px;margin-top:4px;">MP4, MOV, MKV — up to 2GB</p>
-      <input type="file" id="shared-file" accept="video/*" style="display:none" onchange="uploadSharedVideo(this.files[0])">
+      <p style="font-size:11px;margin-top:4px;">MP4, MOV, MKV up to 2GB</p>
+      <input type="file" id="shared-file" accept="video/*" style="display:none">
     </div>
     <div class="progress-bar" id="shared-progress"><div class="progress-fill" id="shared-progress-fill" style="width:0%"></div></div>
     <div class="video-list" id="shared-video-list"></div>
   </div>
 </div>
 
-<!-- USERS TAB -->
 <div class="tab-panel" id="tab-users">
   <div class="section-header"><h2>Users</h2></div>
   <table>
@@ -136,137 +132,214 @@ textarea{height:70px;resize:vertical;line-height:1.5}
 <div class="toast" id="toast"></div>
 
 <script>
-let me={};
+var me = {};
 
-async function init(){
-  const r=await fetch("/api/me");
-  me=await r.json();
-  if(!me.loggedIn||me.user.role!=="admin"){location.href="/auth/login?returnTo=/admin";return;}
-  document.getElementById("user-name").textContent=me.user.name||me.user.email;
+async function init() {
+  var r = await fetch('/api/me');
+  me = await r.json();
+  if (!me.loggedIn || me.user.role !== 'admin') {
+    location.href = '/auth/login?returnTo=/admin';
+    return;
+  }
+  document.getElementById('user-name').textContent = me.user.name || me.user.email;
   loadPresentations();
+  setupTabs();
+  setupNewPresForm();
+  setupVideoUpload();
 }
 
-function switchTab(name){
-  document.querySelectorAll(".nav-tab").forEach(t=>t.classList.remove("active"));
-  document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
-  document.querySelector("[onclick="switchTab('"+name+"')"]").classList.add("active");
-  document.getElementById("tab-"+name).classList.add("active");
-  if(name==="users")loadUsers();
-  if(name==="videos")loadSharedVideos();
+function setupTabs() {
+  var tabs = ['presentations', 'videos', 'users'];
+  tabs.forEach(function(name) {
+    document.getElementById('tab-btn-' + name).addEventListener('click', function() {
+      tabs.forEach(function(t) {
+        document.getElementById('tab-btn-' + t).classList.remove('active');
+        document.getElementById('tab-' + t).classList.remove('active');
+      });
+      this.classList.add('active');
+      document.getElementById('tab-' + name).classList.add('active');
+      if (name === 'users') loadUsers();
+      if (name === 'videos') loadSharedVideos();
+    });
+  });
 }
 
-async function loadPresentations(){
-  const r=await fetch("/api/presentations");
-  const pres=await r.json();
-  const tbody=document.getElementById("pres-tbody");
-  if(!pres.length){tbody.innerHTML="<tr><td colspan="6" style="color:var(--text2);padding:24px;">No presentations yet.</td></tr>";return;}
-  tbody.innerHTML=pres.map(p=>{
-    const d=new Date(p.updated_at*1000).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
-    return "<tr><td><strong>"+p.title+"</strong></td><td class="slug">"+p.slug+"</td><td><span class="badge badge-"+(p.is_public?"public":"private")+"">"+(p.is_public?"Public":"Unlisted")+"</span></td><td>"+(p.has_password?"🔒 Yes":"—")+"</td><td>"+d+"</td><td><div class="actions"><a href="/p/"+p.slug+"" target="_blank" class="btn btn-ghost" style="font-size:11px;">View</a><a href="/edit/"+p.slug+"" class="btn btn-ghost" style="font-size:11px;">Edit</a><button onclick="deletePresentation('"+p.slug+"','"+p.title+"')" class="btn btn-danger" style="font-size:11px;">Delete</button></div></td></tr>";
-  }).join("");
+function setupNewPresForm() {
+  document.getElementById('btn-new-pres').addEventListener('click', function() {
+    document.getElementById('new-pres-form').style.display = 'block';
+    document.getElementById('np-title').focus();
+  });
+  document.getElementById('btn-cancel-pres').addEventListener('click', function() {
+    document.getElementById('new-pres-form').style.display = 'none';
+  });
+  document.getElementById('btn-create-pres').addEventListener('click', createPresentation);
+  document.getElementById('np-title').addEventListener('input', function() {
+    var slug = this.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    document.getElementById('np-slug').value = slug;
+  });
 }
 
-function showNewPresForm(){
-  document.getElementById("new-pres-form").style.display="block";
-  document.getElementById("np-title").focus();
-  document.getElementById("np-title").addEventListener("input",()=>{
-    const slug=document.getElementById("np-title").value.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
-    document.getElementById("np-slug").value=slug;
-  },{once:false});
+async function loadPresentations() {
+  var r = await fetch('/api/presentations');
+  var pres = await r.json();
+  var tbody = document.getElementById('pres-tbody');
+  if (!pres.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text2);padding:24px;">No presentations yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = '';
+  pres.forEach(function(p) {
+    var d = new Date(p.updated_at * 1000).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'});
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td><strong>' + p.title + '</strong></td>' +
+      '<td class="slug">' + p.slug + '</td>' +
+      '<td><span class="badge badge-' + (p.is_public ? 'public' : 'private') + '">' + (p.is_public ? 'Public' : 'Unlisted') + '</span></td>' +
+      '<td>' + (p.has_password ? '&#128274; Yes' : '&#8212;') + '</td>' +
+      '<td>' + d + '</td>' +
+      '<td><div class="actions">' +
+        '<a href="/p/' + p.slug + '" target="_blank" class="btn btn-ghost" style="font-size:11px;">View</a>' +
+        '<a href="/edit/' + p.slug + '" class="btn btn-ghost" style="font-size:11px;">Edit</a>' +
+        '<button class="btn btn-danger del-btn" data-slug="' + p.slug + '" data-title="' + p.title + '" style="font-size:11px;">Delete</button>' +
+      '</div></td>';
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('.del-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      deletePresentation(this.dataset.slug, this.dataset.title);
+    });
+  });
 }
 
-async function createPresentation(){
-  const title=document.getElementById("np-title").value.trim();
-  if(!title){toast("Title required");return;}
-  const body={
-    title,
-    slug:document.getElementById("np-slug").value.trim()||undefined,
-    password:document.getElementById("np-password").value||undefined,
-    is_public:document.getElementById("np-public").value==="1",
-    description:document.getElementById("np-desc").value.trim()
+async function createPresentation() {
+  var title = document.getElementById('np-title').value.trim();
+  if (!title) { toast('Title required'); return; }
+  var body = {
+    title: title,
+    slug: document.getElementById('np-slug').value.trim() || undefined,
+    password: document.getElementById('np-password').value || undefined,
+    is_public: document.getElementById('np-public').value === '1',
+    description: document.getElementById('np-desc').value.trim()
   };
-  const r=await fetch("/api/presentations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-  const d=await r.json();
-  if(d.ok){toast("Created!");document.getElementById("new-pres-form").style.display="none";loadPresentations();}
-  else{toast("Error: "+d.error);}
+  var r = await fetch('/api/presentations', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  var d = await r.json();
+  if (d.ok) {
+    toast('Created!');
+    document.getElementById('new-pres-form').style.display = 'none';
+    document.getElementById('np-title').value = '';
+    document.getElementById('np-slug').value = '';
+    document.getElementById('np-password').value = '';
+    document.getElementById('np-desc').value = '';
+    loadPresentations();
+  } else {
+    toast('Error: ' + d.error);
+  }
 }
 
-async function deletePresentation(slug,title){
-  if(!confirm("Delete ""+title+""? This cannot be undone."))return;
-  const r=await fetch("/api/presentations/"+slug,{method:"DELETE"});
-  const d=await r.json();
-  if(d.ok){toast("Deleted");loadPresentations();}
+async function deletePresentation(slug, title) {
+  if (!confirm('Delete "' + title + '"? This cannot be undone.')) return;
+  var r = await fetch('/api/presentations/' + slug, {method:'DELETE'});
+  var d = await r.json();
+  if (d.ok) { toast('Deleted'); loadPresentations(); }
 }
 
-async function loadUsers(){
-  const r=await fetch("/api/users");
-  const users=await r.json();
-  const tbody=document.getElementById("users-tbody");
-  tbody.innerHTML=users.map(u=>{
-    const d=new Date(u.created_at*1000).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
-    return "<tr><td>"+u.name+"</td><td style="font-size:12px;color:var(--text2);">"+u.email+"</td><td><span class="badge badge-"+u.role+"">"+u.role+"</span></td><td>"+d+"</td><td><select style="width:100px;padding:4px 8px;font-size:12px;" onchange="setRole("+u.id+",this.value)"><option value="viewer""+( u.role==="viewer"?" selected":"" )+">viewer</option><option value="creator""+( u.role==="creator"?" selected":"" )+">creator</option><option value="admin""+( u.role==="admin"?" selected":"" )+">admin</option></select></td></tr>";
-  }).join("");
+async function loadUsers() {
+  var r = await fetch('/api/users');
+  var users = await r.json();
+  var tbody = document.getElementById('users-tbody');
+  tbody.innerHTML = '';
+  users.forEach(function(u) {
+    var d = new Date(u.created_at * 1000).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'});
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + (u.name || '—') + '</td>' +
+      '<td style="font-size:12px;color:var(--text2);">' + (u.email || '—') + '</td>' +
+      '<td><span class="badge badge-' + u.role + '">' + u.role + '</span></td>' +
+      '<td>' + d + '</td>' +
+      '<td><select class="role-select" data-id="' + u.id + '" style="width:100px;padding:4px 8px;font-size:12px;">' +
+        '<option value="viewer"' + (u.role==='viewer'?' selected':'') + '>viewer</option>' +
+        '<option value="creator"' + (u.role==='creator'?' selected':'') + '>creator</option>' +
+        '<option value="admin"' + (u.role==='admin'?' selected':'') + '>admin</option>' +
+      '</select></td>';
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('.role-select').forEach(function(sel) {
+    sel.addEventListener('change', function() {
+      setRole(this.dataset.id, this.value);
+    });
+  });
 }
 
-async function setRole(id,role){
-  await fetch("/api/users/"+id+"/role",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({role})});
-  toast("Role updated");
+async function setRole(id, role) {
+  await fetch('/api/users/' + id + '/role', {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({role:role})});
+  toast('Role updated');
 }
 
-async function loadSharedVideos(){
-  const r=await fetch("/api/videos/shared");
-  const vids=await r.json();
-  const list=document.getElementById("shared-video-list");
-  if(!vids.length){list.innerHTML="<p style="font-size:13px;color:var(--text2);">No shared videos yet.</p>";return;}
-  list.innerHTML=vids.map(v=>{
-    const mb=(v.size/1024/1024).toFixed(0);
-    return "<div class="video-item"><span style="font-size:20px;">🎬</span><span class="name">"+v.original_name+"</span><span class="meta">"+mb+"MB</span><button onclick="deleteVideo("+v.id+")" class="btn btn-danger" style="font-size:11px;padding:4px 10px;">Delete</button></div>";
-  }).join("");
+async function loadSharedVideos() {
+  var r = await fetch('/api/videos/shared');
+  var vids = await r.json();
+  var list = document.getElementById('shared-video-list');
+  if (!vids.length) {
+    list.innerHTML = '<p style="font-size:13px;color:var(--text2);">No shared videos yet.</p>';
+    return;
+  }
+  list.innerHTML = '';
+  vids.forEach(function(v) {
+    var mb = (v.size / 1024 / 1024).toFixed(0);
+    var div = document.createElement('div');
+    div.className = 'video-item';
+    div.innerHTML = '<span style="font-size:20px;">&#127916;</span>' +
+      '<span class="name">' + v.original_name + '</span>' +
+      '<span class="meta">' + mb + 'MB</span>' +
+      '<button class="btn btn-danger del-vid-btn" data-id="' + v.id + '" style="font-size:11px;padding:4px 10px;">Delete</button>';
+    list.appendChild(div);
+  });
+  list.querySelectorAll('.del-vid-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { deleteVideo(this.dataset.id); });
+  });
 }
 
-async function uploadSharedVideo(file){
-  if(!file)return;
-  const bar=document.getElementById("shared-progress");
-  const fill=document.getElementById("shared-progress-fill");
-  bar.style.display="block";fill.style.width="0%";
-  const fd=new FormData();
-  fd.append("video",file);fd.append("scope","shared");
-  const xhr=new XMLHttpRequest();
-  xhr.upload.onprogress=e=>{if(e.lengthComputable)fill.style.width=Math.round(e.loaded/e.total*100)+"%";};
-  xhr.onload=()=>{bar.style.display="none";toast("Uploaded!");loadSharedVideos();};
-  xhr.onerror=()=>{bar.style.display="none";toast("Upload failed");};
-  xhr.open("POST","/api/presentations/_shared/videos");
+function setupVideoUpload() {
+  var dropEl = document.getElementById('shared-drop');
+  var fileEl = document.getElementById('shared-file');
+  dropEl.addEventListener('click', function() { fileEl.click(); });
+  fileEl.addEventListener('change', function() { if (this.files[0]) uploadSharedVideo(this.files[0]); });
+  dropEl.addEventListener('dragover', function(e) { e.preventDefault(); dropEl.classList.add('dragover'); });
+  dropEl.addEventListener('dragleave', function() { dropEl.classList.remove('dragover'); });
+  dropEl.addEventListener('drop', function(e) {
+    e.preventDefault(); dropEl.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) uploadSharedVideo(e.dataTransfer.files[0]);
+  });
+}
+
+async function uploadSharedVideo(file) {
+  var bar = document.getElementById('shared-progress');
+  var fill = document.getElementById('shared-progress-fill');
+  bar.style.display = 'block'; fill.style.width = '0%';
+  var fd = new FormData();
+  fd.append('video', file);
+  fd.append('scope', 'shared');
+  var xhr = new XMLHttpRequest();
+  xhr.upload.onprogress = function(e) { if (e.lengthComputable) fill.style.width = Math.round(e.loaded/e.total*100) + '%'; };
+  xhr.onload = function() { bar.style.display = 'none'; toast('Uploaded!'); loadSharedVideos(); };
+  xhr.onerror = function() { bar.style.display = 'none'; toast('Upload failed'); };
+  xhr.open('POST', '/api/presentations/_shared/videos');
   xhr.send(fd);
 }
 
-async function deleteVideo(id){
-  if(!confirm("Delete this video?"))return;
-  await fetch("/api/videos/"+id,{method:"DELETE"});
-  toast("Deleted");loadSharedVideos();
+async function deleteVideo(id) {
+  if (!confirm('Delete this video?')) return;
+  await fetch('/api/videos/' + id, {method:'DELETE'});
+  toast('Deleted');
+  loadSharedVideos();
 }
 
-const dropEl=document.getElementById("shared-drop");
-dropEl.addEventListener("dragover",e=>{e.preventDefault();dropEl.classList.add("dragover");});
-dropEl.addEventListener("dragleave",()=>dropEl.classList.remove("dragover"));
-dropEl.addEventListener("drop",e=>{e.preventDefault();dropEl.classList.remove("dragover");if(e.dataTransfer.files[0])uploadSharedVideo(e.dataTransfer.files[0]);});
-
-function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2500);}
+function toast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2500);
+}
 
 init();
-
-// Expose functions to global scope for onclick handlers
-window.init = init;
-window.switchTab = switchTab;
-window.loadPresentations = loadPresentations;
-window.showNewPresForm = showNewPresForm;
-window.createPresentation = createPresentation;
-window.deletePresentation = deletePresentation;
-window.loadUsers = loadUsers;
-window.setRole = setRole;
-window.loadSharedVideos = loadSharedVideos;
-window.uploadSharedVideo = uploadSharedVideo;
-window.deleteVideo = deleteVideo;
-window.toast = toast;
 </script>
 </body>
 </html>
