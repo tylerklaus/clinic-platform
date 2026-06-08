@@ -253,6 +253,20 @@ dropEl.addEventListener("drop",e=>{e.preventDefault();dropEl.classList.remove("d
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2500);}
 
 init();
+
+// Expose functions to global scope for onclick handlers
+window.init = init;
+window.switchTab = switchTab;
+window.loadPresentations = loadPresentations;
+window.showNewPresForm = showNewPresForm;
+window.createPresentation = createPresentation;
+window.deletePresentation = deletePresentation;
+window.loadUsers = loadUsers;
+window.setRole = setRole;
+window.loadSharedVideos = loadSharedVideos;
+window.uploadSharedVideo = uploadSharedVideo;
+window.deleteVideo = deleteVideo;
+window.toast = toast;
 </script>
 </body>
 </html>

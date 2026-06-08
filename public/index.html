@@ -119,5 +119,10 @@ async function submitPw(){
 function closeModal(){document.getElementById('overlay').classList.remove('open');pendingSlug=null;}
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
 init();
+
+// Expose to global scope
+window.open_p = open_p;
+window.submitPw = submitPw;
+window.closeModal = closeModal;
 </script>
 </body></html>
