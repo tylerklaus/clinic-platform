@@ -420,6 +420,8 @@ html, body {
     <span class="kbd">Space</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin:0 4px;">play</span>
     <span class="kbd">←</span><span class="kbd">→</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin:0 4px;">frame</span>
     <span class="kbd">[</span><span class="kbd">]</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin:0 4px;">slides</span>
+    <span class="kbd">R</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin:0 4px;">restart</span>
+    <span class="kbd">S</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin:0 4px;">½ speed</span>
   </div>
 </div>
 
@@ -815,23 +817,38 @@ function renderSlideContent(slide, container) {
     s.style.background = NAVY;
     s.appendChild(el('div',`position:absolute;left:0;top:0;bottom:0;width:${10*sc}px;background:${GOLD};`));
     const seasonL = el('div',`position:absolute;left:${32*sc}px;top:${30*sc}px;font-size:${11*sc}px;font-weight:700;color:${GOLD};letter-spacing:${3*sc}px;text-transform:uppercase;`);
-    seasonL.textContent = d.emSeason || 'IHSA Boys Volleyball';
+    seasonL.dataset.field = 'emSeason';
+    seasonL.dataset.placeholder = 'IHSA Boys Volleyball';
+    if(d.emSeason){seasonL.textContent=d.emSeason;}else{seasonL.textContent='IHSA Boys Volleyball';seasonL.dataset.isEmpty='1';seasonL.style.opacity='0.5';}
     const hd2 = el('div',`position:absolute;left:${32*sc}px;top:${52*sc}px;right:${60*sc}px;font-size:${40*sc}px;font-weight:800;color:#fff;line-height:1;`);
-    hd2.textContent = d.emHeader || 'Points of Emphasis';
+    hd2.dataset.field = 'emHeader';
+    hd2.dataset.placeholder = 'Points of Emphasis';
+    if(d.emHeader){hd2.textContent=d.emHeader;}else{hd2.textContent='Points of Emphasis';hd2.dataset.isEmpty='1';hd2.style.opacity='0.4';}
     s.appendChild(el('div',`position:absolute;left:${32*sc}px;top:${118*sc}px;right:${32*sc}px;height:${1*sc}px;background:rgba(255,255,255,0.1);`));
-    const items=[
-      [d.em1||'',d.em1d||''],[d.em2||'',d.em2d||''],[d.em3||'',d.em3d||''],[d.em4||'',d.em4d||'']
-    ].filter(([t])=>t.trim());
-    const avail = h - 140*sc, itemH = Math.min(avail / Math.max(items.length,1), 98*sc);
-    items.forEach(([t1,t2],i)=>{
-      const row = el('div',`position:absolute;left:${32*sc}px;right:${32*sc}px;top:${128*sc + i*itemH}px;height:${itemH}px;display:flex;align-items:center;gap:${20*sc}px;`);
+    // Show all 4 item slots — empty ones show as placeholders
+    const allItems = [
+      [d.em1||'', d.em1d||'', 'em1', 'em1d'],
+      [d.em2||'', d.em2d||'', 'em2', 'em2d'],
+      [d.em3||'', d.em3d||'', 'em3', 'em3d'],
+      [d.em4||'', d.em4d||'', 'em4', 'em4d'],
+    ];
+    const filledCount = allItems.filter(([t])=>t.trim()).length || 1;
+    const avail = h - 140*sc, itemH = Math.min(avail / Math.max(filledCount,1), 98*sc);
+    allItems.forEach(([t1,t2,f1,f2],i)=>{
+      const top = 128*sc + i*Math.min(itemH, 90*sc);
+      if(top + 50*sc > h) return; // don't overflow
+      const row = el('div',`position:absolute;left:${32*sc}px;right:${32*sc}px;top:${top}px;display:flex;align-items:flex-start;gap:${20*sc}px;min-height:${40*sc}px;`);
       const num = el('div',`width:${40*sc}px;height:${40*sc}px;border-radius:${6*sc}px;background:${GOLD};display:flex;align-items:center;justify-content:center;font-size:${18*sc}px;font-weight:800;color:#fff;flex-shrink:0;`);
       num.textContent=String(i+1);
-      const right2=el('div',``);
-      const rt=el('div',`font-size:${21*sc}px;font-weight:700;color:#fff;line-height:1.15;`);
-      rt.textContent=t1;
+      const right2=el('div',`flex:1;`);
+      const rt=el('div',`font-size:${21*sc}px;font-weight:700;color:#fff;line-height:1.15;min-height:${24*sc}px;`);
+      rt.dataset.field=f1; rt.dataset.placeholder='Click to add item...';
+      if(t1){rt.textContent=t1;}else{rt.textContent='Click to add item...';rt.dataset.isEmpty='1';rt.style.opacity='0.3';rt.style.fontStyle='italic';}
       right2.appendChild(rt);
-      if(t2){const rd=el('div',`font-size:${14*sc}px;color:rgba(255,255,255,0.45);margin-top:${2*sc}px;`);rd.textContent=t2;right2.appendChild(rd);}
+      const rd=el('div',`font-size:${14*sc}px;color:rgba(255,255,255,0.45);margin-top:${2*sc}px;min-height:${16*sc}px;`);
+      rd.dataset.field=f2; rd.dataset.placeholder='Detail (optional)';
+      if(t2){rd.textContent=t2;}else{rd.textContent='Detail (optional)';rd.dataset.isEmpty='1';rd.style.opacity='0.2';rd.style.fontStyle='italic';}
+      right2.appendChild(rd);
       row.append(num,right2);
       s.appendChild(row);
     });
@@ -1267,7 +1284,8 @@ document.getElementById('vc-scrubber').addEventListener('input', e => {
 /* ── KEYBOARD ── */
 document.addEventListener('keydown', e => {
   const tag = document.activeElement.tagName;
-  if (tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
+  const isContentEditable = document.activeElement.contentEditable === 'true';
+  if (tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||isContentEditable) return;
   if (e.code==='Space') { e.preventDefault(); document.getElementById('vc-play').click(); }
   if (e.code==='ArrowLeft' && !e.shiftKey) { e.preventDefault(); document.getElementById('vc-prevframe').click(); }
   if (e.code==='ArrowRight' && !e.shiftKey) { e.preventDefault(); document.getElementById('vc-nextframe').click(); }
@@ -1276,6 +1294,21 @@ document.addEventListener('keydown', e => {
   if (e.key==='[') { e.preventDefault(); document.getElementById('tb-prev').click(); }
   if (e.key===']') { e.preventDefault(); advanceNext(); }
   if (e.key==='l'||e.key==='L') document.getElementById('vc-loop').click();
+  // R — restart video from beginning
+  if (e.key==='r'||e.key==='R') {
+    const vid = document.getElementById('video-el');
+    if (vid && vid.src) { vid.currentTime = 0; vid.play(); }
+  }
+  // S — toggle between 1x and 0.5x speed
+  if (e.key==='s'||e.key==='S') {
+    const vid = document.getElementById('video-el');
+    const sel = document.getElementById('vc-speed');
+    if (vid && sel) {
+      const newSpeed = parseFloat(sel.value) === 1 ? 0.5 : 1;
+      sel.value = String(newSpeed);
+      vid.playbackRate = newSpeed;
+    }
+  }
 });
 
 /* ── EXPORT PNG ── */

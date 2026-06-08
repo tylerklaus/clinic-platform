@@ -135,6 +135,32 @@ async function init(){
   showSlide(0);
   setView(slides[0]&&slides[0].type==="video");
   loadClips();
+  // Preload first 2 video clips on launch
+  setTimeout(()=>preloadAhead(0), 1500);
+}
+
+// Preload video clips for the next N slides ahead
+const preloaded = new Set();
+function preloadAhead(fromIdx, count) {
+  count = count || 2;
+  let loaded = 0;
+  for (let i = fromIdx; i < slides.length && loaded < count; i++) {
+    const s = slides[i];
+    const url = s.data && s.data.vidClipUrl;
+    if (!url || preloaded.has(url)) continue;
+    preloaded.add(url);
+    loaded++;
+    // Use a hidden video element to trigger browser caching
+    const v = document.createElement('video');
+    v.preload = 'auto';
+    v.src = url;
+    v.style.display = 'none';
+    // Remove after metadata loaded to free DOM but keep browser cache
+    v.addEventListener('loadedmetadata', () => {
+      setTimeout(() => { if(v.parentNode) v.parentNode.removeChild(v); }, 500);
+    });
+    document.body.appendChild(v);
+  }
 }
 
 async function loadClips(){
@@ -263,6 +289,8 @@ function advanceNext(){
     const nextOrder=(s&&s.data&&s.data.vidOrder)||"video";
     if(s&&s.type==="video"){setView(nextOrder==="video");}
     else{setView(false);}
+    // Preload 2 clips ahead of new position
+    preloadAhead(currentSlide+1, 2);
   }
 }
 
@@ -289,6 +317,11 @@ document.addEventListener("keydown",function(e){
   if(e.key==="["){e.preventDefault();document.getElementById("tb-prev").click();}
   if(e.key==="]"){e.preventDefault();advanceNext();}
   if(e.key==="l"||e.key==="L")document.getElementById("vc-loop").click();
+  if(e.key==="r"||e.key==="R"){if(video&&video.src){video.currentTime=0;video.play();}}
+  if(e.key==="s"||e.key==="S"){
+    const sel=document.getElementById("vc-speed");
+    if(video&&sel){const n=parseFloat(sel.value)===1?0.5:1;sel.value=String(n);video.playbackRate=n;}
+  }
 });
 
 init();
