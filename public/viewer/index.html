@@ -232,6 +232,11 @@ function setView(wantVideo){
   showingVideo=wantVideo;
   document.getElementById("video-slide").classList.toggle("active",wantVideo);
   document.getElementById("content-slide").classList.toggle("active",!wantVideo);
+  // Auto-load attached clip if present
+  if(wantVideo&&slide&&slide.data&&slide.data.vidClipUrl&&video.src!==window.location.origin+slide.data.vidClipUrl){
+    document.getElementById("drop-overlay").style.display="none";
+    video.src=slide.data.vidClipUrl;
+  }
   if(!wantVideo&&slide){
     const inner=document.getElementById("slide-inner");
     const f=document.getElementById("slide-frame");

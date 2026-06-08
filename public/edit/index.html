@@ -473,6 +473,13 @@ html, body {
       <div class="ep-field"><label>Situation eyebrow <span style="opacity:.5;font-weight:400;">(label above body)</span></label><input type="text" id="ep-vid-eyebrow" placeholder="e.g. Situation"></div>
       <div class="ep-field"><label>Situation body</label><textarea id="ep-vid-body" placeholder="Describe the play..." style="height:80px;"></textarea></div>
       <div class="ep-field"><label>Call-to-action badge</label><input type="text" id="ep-vid-cta" placeholder="e.g. What&#39;s your call?"></div>
+      <div class="ep-field">
+        <label>Attached video clip <span style="opacity:.5;font-weight:400;">(auto-loads in viewer)</span></label>
+        <select id="ep-vid-clip" style="width:100%;">
+          <option value="">— none / load manually —</option>
+        </select>
+        <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;">Upload clips in Admin or use the Clips panel in the toolbar</div>
+      </div>
     </div>
 
     <!-- REVEAL fields -->
@@ -1197,6 +1204,7 @@ function populateEditor() {
     g('ep-vid-eyebrow').value = d.vidEyebrow || 'Situation';
     g('ep-vid-body').value = d.vidBody || s.body || '';
     g('ep-vid-cta').value = d.vidCta || "What's your call?";
+    populateClipPicker(d.vidClipUrl || '');
   } else if (s.type === 'reveal') {
     g('ep-rev-eyebrow').value = d.revEyebrow || 'The Call · Answer';
     g('ep-rev-ruling').value = d.revRuling || s.title || '';
@@ -1351,6 +1359,7 @@ g('ep-save').addEventListener('click', () => {
       vidEyebrow: g('ep-vid-eyebrow').value,
       vidBody: g('ep-vid-body').value,
       vidCta: g('ep-vid-cta').value,
+      vidClipUrl: g('ep-vid-clip').value || '',
     };
     title = g('ep-vid-title').value;
   } else if (type === 'reveal') {
@@ -1435,6 +1444,24 @@ function saveSlides() {
       setTimeout(() => el.classList.remove('show'), 1200);
     }
   }, 800);
+}
+
+async function populateClipPicker(selectedUrl) {
+  const sel = g('ep-vid-clip');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— none / load manually —</option>';
+  try {
+    const r = await fetch('/api/presentations/' + slug + '/videos');
+    const vids = await r.json();
+    vids.forEach(v => {
+      const url = v.scope === 'shared' ? '/videos/shared/' + v.filename : '/videos/p/' + slug + '/' + v.filename;
+      const opt = document.createElement('option');
+      opt.value = url;
+      opt.textContent = (v.scope === 'shared' ? '⚡ ' : '📁 ') + v.original_name + ' (' + (v.size/1024/1024).toFixed(0) + 'MB)';
+      opt.selected = url === selectedUrl;
+      sel.appendChild(opt);
+    });
+  } catch(e) { /* no clips */ }
 }
 
 async function loadFromServer() {
