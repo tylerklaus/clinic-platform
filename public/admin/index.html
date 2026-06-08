@@ -105,7 +105,10 @@ textarea{height:70px;resize:vertical;line-height:1.5}
 </div>
 
 <div class="tab-panel" id="tab-videos">
-  <div class="section-header"><h2>Shared Video Library</h2></div>
+  <div class="section-header">
+    <h2>Shared Video Library</h2>
+    <button class="btn btn-ghost" id="btn-scan-videos">&#128269; Scan NFS for new clips</button>
+  </div>
   <div class="card">
     <h3>Upload Shared Clip</h3>
     <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Shared clips are available to all presentations.</p>
@@ -297,7 +300,26 @@ async function loadSharedVideos() {
   });
 }
 
+async function scanVideos() {
+  var btn = document.getElementById('btn-scan-videos');
+  btn.textContent = 'Scanning...';
+  btn.disabled = true;
+  try {
+    var r = await fetch('/api/videos/scan', {method:'POST'});
+    var d = await r.json();
+    toast(d.message || 'Done');
+    if (d.added > 0) loadSharedVideos();
+  } catch(e) {
+    toast('Scan failed');
+  } finally {
+    btn.textContent = '\uD83D\uDD0D Scan NFS for new clips';
+    btn.disabled = false;
+  }
+}
+
 function setupVideoUpload() {
+  var scanBtn = document.getElementById('btn-scan-videos');
+  if (scanBtn) scanBtn.addEventListener('click', scanVideos);
   var dropEl = document.getElementById('shared-drop');
   var fileEl = document.getElementById('shared-file');
   dropEl.addEventListener('click', function() { fileEl.click(); });

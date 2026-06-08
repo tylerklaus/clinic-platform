@@ -7,7 +7,7 @@ import FileStoreFactory from 'session-file-store';
 import Database from 'better-sqlite3';
 import multer from 'multer';
 import { randomBytes, createHash } from 'crypto';
-import { existsSync, mkdirSync, unlinkSync, renameSync } from 'fs';
+import { existsSync, mkdirSync, unlinkSync, renameSync, readdirSync, statSync } from 'fs';
 import { join, extname, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
@@ -351,6 +351,30 @@ app.get('/videos/p/:slug/:filename', (req, res) => {
   const filePath = join(VIDEO_DIR, 'presentations', req.params.slug, req.params.filename);
   if (!existsSync(filePath)) return res.status(404).send('Not found');
   res.sendFile(filePath);
+});
+
+// Scan shared folder for unregistered videos
+app.post('/api/videos/scan', requireAdmin, (req, res) => {
+  const sharedDir = join(VIDEO_DIR, 'shared');
+  const videoExts = ['.mp4', '.mov', '.mkv', '.avi', '.m4v', '.wmv'];
+  let added = 0;
+  try {
+    mkdirSync(sharedDir, { recursive: true });
+    const files = readdirSync(sharedDir);
+    files.forEach(filename => {
+      const ext = extname(filename).toLowerCase();
+      if (!videoExts.includes(ext)) return;
+      const existing = db.prepare("SELECT id FROM videos WHERE filename=? AND scope='shared'").get(filename);
+      if (existing) return;
+      const size = statSync(join(sharedDir, filename)).size;
+      db.prepare(`INSERT INTO videos (filename, original_name, size, scope, presentation_id, uploaded_by) VALUES (?, ?, ?, 'shared', NULL, NULL)`)
+        .run(filename, filename, size);
+      added++;
+    });
+    res.json({ ok: true, added, message: added > 0 ? `Found and registered ${added} new clip${added > 1 ? 's' : ''}` : 'No new clips found' });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Delete video
