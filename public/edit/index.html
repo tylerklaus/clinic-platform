@@ -880,6 +880,15 @@ function renderSlideContent(slide, container) {
       photoCol.appendChild(photo);
       ruleCard.appendChild(photoCol);
     }
+    // Rationale bar at very bottom
+    const ratBar = el('div',`position:absolute;left:0;right:0;bottom:0;height:${58*sc}px;background:#fff;border-top:${2*sc}px solid #eee;display:flex;align-items:center;padding:0 ${32*sc}px;gap:${10*sc}px;`);
+    const ratLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;flex-shrink:0;`);
+    ratLbl.textContent = 'Rationale';
+    const ratTxt = el('div',`font-size:${13*sc}px;color:#555;font-style:italic;flex:1;min-height:${16*sc}px;`);
+    ratTxt.dataset.field='rcNote'; ratTxt.dataset.placeholder='Explain the reason for this rule change...';
+    const _rcNoteVal=d.rcNote||'';
+    if(_rcNoteVal){ratTxt.textContent=_rcNoteVal;}else{ratTxt.textContent='Explain the reason for this rule change...';ratTxt.dataset.isEmpty='1';ratTxt.style.opacity='0.4';}
+    ratBar.append(ratLbl, ratTxt);
     // Penalty bar (between rule card and rationale) — hidden when rcHidePenalty is set
     if (!d.rcHidePenalty) {
       const penBar = el('div',`position:absolute;left:0;right:0;bottom:${58*sc}px;height:${100*sc}px;background:rgba(242,101,34,0.08);border-top:${2*sc}px solid rgba(242,101,34,0.25);border-bottom:${2*sc}px solid rgba(242,101,34,0.25);display:flex;align-items:flex-start;padding:${8*sc}px ${32*sc}px;gap:${6*sc}px;flex-direction:column;`);

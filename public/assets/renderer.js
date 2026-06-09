@@ -195,6 +195,12 @@ function renderSlideContent(slide, container) {
       photoCol.appendChild(photo);
       ruleCard.appendChild(photoCol);
     }
+    const ratBar = el('div',`position:absolute;left:0;right:0;bottom:0;height:${58*sc}px;background:#fff;border-top:${2*sc}px solid #eee;display:flex;align-items:center;padding:0 ${32*sc}px;gap:${10*sc}px;`);
+    const ratLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;flex-shrink:0;`);
+    ratLbl.textContent = 'Rationale';
+    const ratTxt = editable(el('div',`font-size:${13*sc}px;color:#555;font-style:italic;flex:1;`),'rcNote','Why this rule changed...');
+    ratTxt.textContent = d.rcNote || '';
+    ratBar.append(ratLbl, ratTxt);
     if (!d.rcHidePenalty) {
       const penBar = el('div',`position:absolute;left:0;right:0;bottom:${58*sc}px;height:${100*sc}px;background:rgba(242,101,34,0.08);border-top:${2*sc}px solid rgba(242,101,34,0.25);border-bottom:${2*sc}px solid rgba(242,101,34,0.25);display:flex;align-items:flex-start;padding:${8*sc}px ${32*sc}px;gap:${6*sc}px;flex-direction:column;`);
       const penLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;`);
