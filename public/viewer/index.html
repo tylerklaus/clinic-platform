@@ -134,7 +134,19 @@ html,body{height:100%;background:#000;color:#fff;font-family:"Segoe UI",system-u
   </div>
 </div>
 
-<div id="video-library">
+<div id="pw-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999;display:none;align-items:center;justify-content:center;">
+  <div style="background:#1e1e32;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:32px;width:100%;max-width:380px;position:relative;">
+    <div style="font-size:11px;font-weight:700;color:#F26522;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Password Required</div>
+    <div id="pw-title" style="font-size:20px;font-weight:700;color:#fff;margin-bottom:6px;"></div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-bottom:20px;">This presentation is password protected.</div>
+    <input type="password" id="pw-input" placeholder="Enter password" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);color:#fff;font-size:15px;outline:none;margin-bottom:8px;">
+    <div id="pw-err" style="font-size:12px;color:#ff6b6b;min-height:18px;margin-bottom:10px;"></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="window.location.href='/'" style="flex:1;padding:9px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.07);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Back</button>
+      <button onclick="submitViewerPw()" style="flex:1;padding:9px;border-radius:6px;border:none;background:#F26522;color:#1B1B2F;font-size:13px;font-weight:600;cursor:pointer;">Enter</button>
+    </div>
+  </div>
+</div>
   <div id="vl-header">
     <h2>Video Clips</h2>
     <button class="tb-btn" id="vl-close" style="padding:0 10px;height:30px;font-size:12px;"><i class="ti ti-x"></i></button>
@@ -157,14 +169,42 @@ let slides=[],currentSlide=0,showingVideo=true,looping=false,cbPhase=0;
 let mechImageSrc={},titleLogoSrc=null;
 const video=document.getElementById("video-el");
 
+function showPasswordPrompt(){
+  // Get presentation title to show in modal
+  fetch('/api/presentations/'+slug)
+    .then(r=>r.ok?r.json():null)
+    .then(meta=>{
+      document.getElementById('pw-title').textContent=(meta&&meta.title)||'';
+    });
+  const ov=document.getElementById('pw-overlay');
+  ov.style.display='flex';
+  setTimeout(()=>document.getElementById('pw-input').focus(),100);
+  document.getElementById('pw-input').onkeydown=e=>{if(e.key==='Enter')submitViewerPw();};
+}
+
+async function submitViewerPw(){
+  const pw=document.getElementById('pw-input').value;
+  if(!pw)return;
+  document.getElementById('pw-err').textContent='';
+  const r=await fetch('/api/presentations/'+slug+'/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
+  const d=await r.json();
+  if(d.ok){
+    document.getElementById('pw-overlay').style.display='none';
+    init(); // retry now that session has unlocked slug
+  } else {
+    document.getElementById('pw-err').textContent='Incorrect password';
+    document.getElementById('pw-input').value='';
+    document.getElementById('pw-input').focus();
+  }
+}
+
 async function init(){
   const[sr,mr]=await Promise.all([
     fetch("/api/presentations/"+slug+"/slides"),
     fetch("/api/presentations/"+slug)
   ]);
   if(sr.status===401){
-    // Password required but not unlocked — redirect to homepage to enter password
-    window.location.href='/?pw='+encodeURIComponent(slug);
+    showPasswordPrompt();
     return;
   }
   if(!sr.ok){
