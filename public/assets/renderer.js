@@ -163,32 +163,21 @@ function renderSlideContent(slide, container) {
     s.style.background = '#EFEFED';
     const rPill = pill(sc, d.rcRule || 'Rule', true);
     s.appendChild(topBar(sc, 'Rule Change', rPill));
-    // Heading
     const hd = el('div',`position:absolute;left:${32*sc}px;top:${82*sc}px;right:${32*sc}px;font-size:${32*sc}px;font-weight:800;color:${NAVY};line-height:1.1;`);
     hd.textContent = d.rcHeading || slide.title;
-    // Two columns
-    const gap = 12*sc, cw = (w - 64*sc - gap) / 2;
-    const mk = (left, hdrTxt, bodyTxt, isNew) => {
-      const col = el('div',`position:absolute;left:${left}px;top:${142*sc}px;width:${cw}px;bottom:${32*sc}px;background:#fff;border-radius:${8*sc}px;overflow:hidden;${isNew ? `border-top:${4*sc}px solid ${GOLD};` : 'border-top:4px solid #ccc;'}`);
-      const ch = el('div',`padding:${10*sc}px ${16*sc}px ${8*sc}px;font-size:${10*sc}px;font-weight:700;letter-spacing:${1.5*sc}px;text-transform:uppercase;color:${isNew ? GOLD : '#999'};`);
-      ch.textContent = hdrTxt;
-      const cb = el('div',`padding:${14*sc}px ${16*sc}px;font-size:${17*sc}px;color:${isNew?'#111':'#777'};line-height:1.65;white-space:pre-wrap;${isNew?'font-weight:500;':''}`);
-      cb.textContent = bodyTxt;
-      col.append(ch, cb);
-      return col;
-    };
-    s.append(hd, mk(32*sc, 'Previous', d.rcOld||'', false), mk(32*sc+cw+gap, 'New Rule', d.rcNew||'', true));
-    // Arrow between
-    const arw = el('div',`position:absolute;left:${32*sc+cw}px;width:${gap}px;top:${142*sc}px;bottom:${32*sc}px;display:flex;align-items:center;justify-content:center;font-size:${22*sc}px;color:${GOLD};font-weight:900;`);
-    arw.textContent='→';
-    // Bottom note
-    const nb = el('div',`position:absolute;left:0;right:0;bottom:0;height:${0}px;`); // replaced by note if present
-    if (d.rcNote) {
-      const nb2 = el('div',`position:absolute;left:${32*sc}px;bottom:${8*sc}px;font-size:${12*sc}px;color:#999;font-style:italic;`);
-      nb2.textContent = d.rcNote;
-      s.appendChild(nb2);
-    }
-    s.appendChild(arw);
+    const ruleCard = el('div',`position:absolute;left:${32*sc}px;top:${142*sc}px;right:${32*sc}px;bottom:${110*sc}px;background:#fff;border-radius:${8*sc}px;border-top:${4*sc}px solid ${GOLD};overflow:hidden;`);
+    const ruleCardHdr = el('div',`padding:${10*sc}px ${16*sc}px ${8*sc}px;font-size:${10*sc}px;font-weight:700;letter-spacing:${1.5*sc}px;text-transform:uppercase;color:${GOLD};`);
+    ruleCardHdr.textContent = 'New Rule';
+    const ruleCardBody = el('div',`padding:${14*sc}px ${18*sc}px;font-size:${19*sc}px;color:#111;line-height:1.65;white-space:pre-wrap;font-weight:500;`);
+    ruleCardBody.textContent = d.rcNew || '';
+    ruleCard.append(ruleCardHdr, ruleCardBody);
+    const ratBar = el('div',`position:absolute;left:0;right:0;bottom:0;height:${100*sc}px;background:#fff;border-top:${3*sc}px solid ${GOLD};display:flex;align-items:flex-start;padding:${10*sc}px ${32*sc}px;gap:${6*sc}px;flex-direction:column;`);
+    const ratLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;`);
+    ratLbl.textContent = 'Rationale';
+    const ratTxt = el('div',`font-size:${14*sc}px;color:#555;font-style:italic;`);
+    ratTxt.textContent = d.rcNote || '';
+    ratBar.append(ratLbl, ratTxt);
+    s.append(hd, ruleCard, ratBar);
 
   // ── POINTS OF EMPHASIS ────────────────────────────────────────────────
   } else if (slide.type === 'emphasis') {
