@@ -529,6 +529,12 @@ html, body {
       <input type="hidden" id="ep-rc-title"><input type="hidden" id="ep-rc-rule"><input type="hidden" id="ep-rc-heading">
       <input type="hidden" id="ep-rc-old"><input type="hidden" id="ep-rc-new"><input type="hidden" id="ep-rc-penalty"><input type="hidden" id="ep-rc-note">
       <div class="ep-field">
+        <label style="text-transform:none;font-size:12px;font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="ep-rc-hide-penalty" style="width:auto;accent-color:var(--gold);" onchange="toggleRcPenalty(this.checked)">
+          Hide penalty section
+        </label>
+      </div>
+      <div class="ep-field">
         <label>Photo <span style="opacity:.5;font-weight:400;">(optional, shown beside rule text)</span></label>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <label style="cursor:pointer;padding:5px 12px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;font-size:12px;color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.05);">
@@ -852,7 +858,8 @@ function renderSlideContent(slide, container) {
     const _rchVal=d.rcHeading||slide.title||'';
     if(_rchVal){hd.textContent=_rchVal;}else{hd.textContent='Rule heading';hd.dataset.isEmpty='1';hd.style.opacity='0.35';}
     // New rule — full width card (raised bottom to make room for penalty + rationale)
-    const ruleCard = el('div',`position:absolute;left:${32*sc}px;top:${142*sc}px;right:${32*sc}px;bottom:${162*sc}px;background:#fff;border-radius:${8*sc}px;border-top:${4*sc}px solid ${GOLD};overflow:hidden;display:flex;`);
+    const ruleCardBottom = d.rcHidePenalty ? 58*sc : 162*sc;
+    const ruleCard = el('div',`position:absolute;left:${32*sc}px;top:${142*sc}px;right:${32*sc}px;bottom:${ruleCardBottom}px;background:#fff;border-radius:${8*sc}px;border-top:${4*sc}px solid ${GOLD};overflow:hidden;display:flex;`);
     // If photo present, split: text left, photo right
     const rcImg = rcImageSrc[currentSlide];
     const textWidth = rcImg ? `${480*sc}px` : '100%';
@@ -873,25 +880,20 @@ function renderSlideContent(slide, container) {
       photoCol.appendChild(photo);
       ruleCard.appendChild(photoCol);
     }
-    // Penalty bar (between rule card and rationale)
-    const penBar = el('div',`position:absolute;left:0;right:0;bottom:${58*sc}px;height:${100*sc}px;background:rgba(242,101,34,0.08);border-top:${2*sc}px solid rgba(242,101,34,0.25);border-bottom:${2*sc}px solid rgba(242,101,34,0.25);display:flex;align-items:flex-start;padding:${8*sc}px ${32*sc}px;gap:${6*sc}px;flex-direction:column;`);
-    const penLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;`);
-    penLbl.textContent = 'Penalty';
-    const penTxt = el('div',`font-size:${15*sc}px;color:#333;font-weight:500;width:100%;min-height:${20*sc}px;`);
-    penTxt.dataset.field='rcPenalty'; penTxt.dataset.placeholder='Describe the penalty...';
-    const _rcpVal=d.rcPenalty||'';
-    if(_rcpVal){penTxt.textContent=_rcpVal;}else{penTxt.textContent='Describe the penalty...';penTxt.dataset.isEmpty='1';penTxt.style.opacity='0.35';penTxt.style.fontStyle='italic';}
-    penBar.append(penLbl, penTxt);
-    // Rationale bar at very bottom
-    const ratBar = el('div',`position:absolute;left:0;right:0;bottom:0;height:${58*sc}px;background:#fff;border-top:${2*sc}px solid #eee;display:flex;align-items:center;padding:0 ${32*sc}px;gap:${10*sc}px;`);
-    const ratLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;flex-shrink:0;`);
-    ratLbl.textContent = 'Rationale';
-    const ratTxt = el('div',`font-size:${13*sc}px;color:#555;font-style:italic;flex:1;min-height:${16*sc}px;`);
-    ratTxt.dataset.field='rcNote'; ratTxt.dataset.placeholder='Explain the reason for this rule change...';
-    const _rcNoteVal=d.rcNote||'';
-    if(_rcNoteVal){ratTxt.textContent=_rcNoteVal;}else{ratTxt.textContent='Explain the reason for this rule change...';ratTxt.dataset.isEmpty='1';ratTxt.style.opacity='0.4';}
-    ratBar.append(ratLbl, ratTxt);
-    s.append(hd, ruleCard, penBar, ratBar);
+    // Penalty bar (between rule card and rationale) — hidden when rcHidePenalty is set
+    if (!d.rcHidePenalty) {
+      const penBar = el('div',`position:absolute;left:0;right:0;bottom:${58*sc}px;height:${100*sc}px;background:rgba(242,101,34,0.08);border-top:${2*sc}px solid rgba(242,101,34,0.25);border-bottom:${2*sc}px solid rgba(242,101,34,0.25);display:flex;align-items:flex-start;padding:${8*sc}px ${32*sc}px;gap:${6*sc}px;flex-direction:column;`);
+      const penLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;`);
+      penLbl.textContent = 'Penalty';
+      const penTxt = el('div',`font-size:${15*sc}px;color:#333;font-weight:500;width:100%;min-height:${20*sc}px;`);
+      penTxt.dataset.field='rcPenalty'; penTxt.dataset.placeholder='Describe the penalty...';
+      const _rcpVal=d.rcPenalty||'';
+      if(_rcpVal){penTxt.textContent=_rcpVal;}else{penTxt.textContent='Describe the penalty...';penTxt.dataset.isEmpty='1';penTxt.style.opacity='0.35';penTxt.style.fontStyle='italic';}
+      penBar.append(penLbl, penTxt);
+      s.append(hd, ruleCard, penBar, ratBar);
+    } else {
+      s.append(hd, ruleCard, ratBar);
+    }
 
   // ── POINTS OF EMPHASIS ────────────────────────────────────────────────
   } else if (slide.type === 'emphasis') {
@@ -1591,6 +1593,7 @@ function populateEditor() {
   } else if (s.type === 'rulechange') {
     if (s.data && s.data.rcImage) rcImageSrc[currentSlide] = s.data.rcImage;
     updateRcImgUI();
+    g('ep-rc-hide-penalty').checked = !!(s.data && s.data.rcHidePenalty);
   } else if (s.type === 'emphasis') {
     g('ep-em-1hide').checked = !!d.em1hide;
     g('ep-em-2hide').checked = !!d.em2hide;
@@ -1620,7 +1623,15 @@ function toggleStepReveal(enabled) {
   if (!slide.data) slide.data = {};
   slide.data.stepReveal = enabled;
   saveSlides();
-  // No need to re-render — it only affects viewer behaviour
+}
+
+// Toggle penalty section visibility on rule change slides
+function toggleRcPenalty(hidden) {
+  const slide = slides[currentSlide];
+  if (!slide.data) slide.data = {};
+  slide.data.rcHidePenalty = hidden;
+  saveSlides();
+  showSlide(currentSlide);
 }
 
 g('ep-type').addEventListener('change', () => {

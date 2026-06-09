@@ -177,7 +177,8 @@ function renderSlideContent(slide, container) {
     s.appendChild(topBar(sc, 'Rule Change', rPill));
     const hd = editable(el('div',`position:absolute;left:${32*sc}px;top:${82*sc}px;right:${32*sc}px;font-size:${32*sc}px;font-weight:800;color:${NAVY};line-height:1.1;`),'rcHeading','Rule Change Heading');
     hd.textContent = d.rcHeading || slide.title;
-    const ruleCard = el('div',`position:absolute;left:${32*sc}px;top:${142*sc}px;right:${32*sc}px;bottom:${160*sc}px;background:#fff;border-radius:${8*sc}px;border-top:${4*sc}px solid ${GOLD};overflow:hidden;display:flex;`);
+    const ruleCardBottom = d.rcHidePenalty ? 58*sc : 160*sc;
+    const ruleCard = el('div',`position:absolute;left:${32*sc}px;top:${142*sc}px;right:${32*sc}px;bottom:${ruleCardBottom}px;background:#fff;border-radius:${8*sc}px;border-top:${4*sc}px solid ${GOLD};overflow:hidden;display:flex;`);
     const rcImg = d.rcImage || null;
     const ruleCardHdr = el('div',`padding:${10*sc}px ${16*sc}px ${8*sc}px;font-size:${10*sc}px;font-weight:700;letter-spacing:${1.5*sc}px;text-transform:uppercase;color:${GOLD};`);
     ruleCardHdr.textContent = 'New Rule';
@@ -194,19 +195,17 @@ function renderSlideContent(slide, container) {
       photoCol.appendChild(photo);
       ruleCard.appendChild(photoCol);
     }
-    const penBar = el('div',`position:absolute;left:0;right:0;bottom:${58*sc}px;height:${100*sc}px;background:rgba(242,101,34,0.08);border-top:${2*sc}px solid rgba(242,101,34,0.25);border-bottom:${2*sc}px solid rgba(242,101,34,0.25);display:flex;align-items:flex-start;padding:${8*sc}px ${32*sc}px;gap:${6*sc}px;flex-direction:column;`);
-    const penLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;`);
-    penLbl.textContent = 'Penalty';
-    const penTxt = editable(el('div',`font-size:${15*sc}px;color:#333;font-weight:500;`),'rcPenalty','Describe the penalty...');
-    penTxt.textContent = d.rcPenalty || '';
-    penBar.append(penLbl, penTxt);
-    const ratBar = el('div',`position:absolute;left:0;right:0;bottom:0;height:${58*sc}px;background:#fff;border-top:${2*sc}px solid #eee;display:flex;align-items:center;padding:0 ${32*sc}px;gap:${10*sc}px;`);
-    const ratLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;flex-shrink:0;`);
-    ratLbl.textContent = 'Rationale';
-    const ratTxt = editable(el('div',`font-size:${13*sc}px;color:#555;font-style:italic;flex:1;`),'rcNote','Why this rule changed...');
-    ratTxt.textContent = d.rcNote || '';
-    ratBar.append(ratLbl, ratTxt);
-    s.append(hd, ruleCard, penBar, ratBar);
+    if (!d.rcHidePenalty) {
+      const penBar = el('div',`position:absolute;left:0;right:0;bottom:${58*sc}px;height:${100*sc}px;background:rgba(242,101,34,0.08);border-top:${2*sc}px solid rgba(242,101,34,0.25);border-bottom:${2*sc}px solid rgba(242,101,34,0.25);display:flex;align-items:flex-start;padding:${8*sc}px ${32*sc}px;gap:${6*sc}px;flex-direction:column;`);
+      const penLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;`);
+      penLbl.textContent = 'Penalty';
+      const penTxt = editable(el('div',`font-size:${15*sc}px;color:#333;font-weight:500;`),'rcPenalty','Describe the penalty...');
+      penTxt.textContent = d.rcPenalty || '';
+      penBar.append(penLbl, penTxt);
+      s.append(hd, ruleCard, penBar, ratBar);
+    } else {
+      s.append(hd, ruleCard, ratBar);
+    }
 
   // ── POINTS OF EMPHASIS ────────────────────────────────────────────────
   } else if (slide.type === 'emphasis') {
