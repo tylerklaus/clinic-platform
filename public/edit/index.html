@@ -459,15 +459,8 @@ html, body {
     </div>
 
     <!-- TITLE fields -->
-    <!-- TITLE: logo only — text edited inline on slide -->
     <div class="ep-group" id="epg-title">
-      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.      <div class="ep-field" style="border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;padding-top:10px;">
-        <label style="text-transform:none;font-size:12px;font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="ep-step-reveal" style="width:auto;accent-color:var(--gold);" onchange="toggleStepReveal(this.checked)">
-          Reveal body text line by line
-        </label>
-      </div>
-    </div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
       <div class="ep-field" id="ep-logo-field">
         <label>Logo</label>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -482,10 +475,9 @@ html, body {
       </div>
     </div>
 
-    <!-- VIDEO: structural fields only — text edited inline -->
+    <!-- VIDEO fields -->
     <div class="ep-group" id="epg-video">
       <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
-      <!-- Hidden inputs to hold values for save — populated from slide.data -->
       <input type="hidden" id="ep-vid-title">
       <input type="hidden" id="ep-vid-panel">
       <input type="hidden" id="ep-vid-eyebrow">
@@ -500,13 +492,7 @@ html, body {
           <input type="checkbox" id="ep-vid-show-text" style="width:auto;accent-color:var(--gold);" checked>
           Show situation text slide
         </label>
-            <div class="ep-field" style="border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;padding-top:10px;">
-        <label style="text-transform:none;font-size:12px;font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="ep-step-reveal" style="width:auto;accent-color:var(--gold);" onchange="toggleStepReveal(this.checked)">
-          Reveal body text line by line
-        </label>
       </div>
-    </div>
       <div class="ep-field">
         <label>Attached video clip <span style="opacity:.5;font-weight:400;">(auto-loads in viewer)</span></label>
         <select id="ep-vid-clip" style="width:100%;">
@@ -516,7 +502,7 @@ html, body {
       </div>
     </div>
 
-    <!-- REVEAL: text edited inline on slide -->
+    <!-- REVEAL fields -->
     <div class="ep-group" id="epg-reveal">
       <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
       <input type="hidden" id="ep-rev-eyebrow">
@@ -529,13 +515,7 @@ html, body {
 
     <!-- EMBED fields -->
     <div class="ep-group" id="epg-embed">
-      <div class="ep-field"><label>Slide label <span style="opacity:.5;font-weight:400;">(shown in slide list)</span></label><input type="text" id="ep-emb-title" placeholder="e.g. Live Poll — Scenario 1">      <div class="ep-field" style="border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;padding-top:10px;">
-        <label style="text-transform:none;font-size:12px;font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="ep-step-reveal" style="width:auto;accent-color:var(--gold);" onchange="toggleStepReveal(this.checked)">
-          Reveal body text line by line
-        </label>
-      </div>
-    </div>
+      <div class="ep-field"><label>Slide label <span style="opacity:.5;font-weight:400;">(shown in slide list)</span></label><input type="text" id="ep-emb-title" placeholder="e.g. Live Poll — Scenario 1"></div>
       <div class="ep-field"><label>Header text <span style="opacity:.5;font-weight:400;">(top bar)</span></label><input type="text" id="ep-emb-header" placeholder="e.g. Cast Your Vote"></div>
       <div class="ep-field">
         <label>Embed HTML <span style="opacity:.5;font-weight:400;">(paste Slido iframe or any HTML)</span></label>
@@ -543,6 +523,7 @@ html, body {
       </div>
     </div>
 
+    <!-- RULE CHANGE fields -->
     <div class="ep-group" id="epg-rulechange">
       <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
       <input type="hidden" id="ep-rc-title"><input type="hidden" id="ep-rc-rule"><input type="hidden" id="ep-rc-heading">
@@ -556,17 +537,12 @@ html, body {
           </label>
           <span id="ep-rc-img-status" style="font-size:11px;color:rgba(255,255,255,0.4);">no photo</span>
           <button id="ep-rc-img-clear" style="display:none;font-size:11px;padding:4px 8px;border:1px solid rgba(255,80,80,0.3);border-radius:5px;background:none;color:#ff8080;cursor:pointer;">remove</button>
-              <div class="ep-field" style="border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;padding-top:10px;">
-        <label style="text-transform:none;font-size:12px;font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="ep-step-reveal" style="width:auto;accent-color:var(--gold);" onchange="toggleStepReveal(this.checked)">
-          Reveal body text line by line
-        </label>
-      </div>
-    </div>
+        </div>
         <div id="ep-rc-img-preview" style="margin-top:8px;"></div>
       </div>
     </div>
 
+    <!-- EMPHASIS fields -->
     <div class="ep-group" id="epg-emphasis">
       <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly. Check "Hide" to skip an item without deleting it.</div>
       <input type="hidden" id="ep-em-title"><input type="hidden" id="ep-em-header"><input type="hidden" id="ep-em-season">
@@ -587,6 +563,12 @@ html, body {
           <input type="checkbox" id="ep-em-4hide" style="width:auto;accent-color:var(--gold);" onchange="toggleEmHide(4,this.checked)"> Hide item 4
         </label>
       </div>
+      <div class="ep-field" style="border-top:1px solid rgba(255,255,255,0.08);margin-top:10px;padding-top:10px;">
+        <label style="text-transform:none;font-size:12px;font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="ep-step-reveal-em" style="width:auto;accent-color:var(--gold);" onchange="toggleStepReveal(this.checked)">
+          Reveal items one at a time
+        </label>
+      </div>
     </div>
 
     <!-- MECHANICS fields -->
@@ -603,67 +585,52 @@ html, body {
           </label>
           <span id="ep-mech-img-status" style="font-size:11px;color:rgba(255,255,255,0.4);">no image</span>
           <button id="ep-mech-img-clear" style="display:none;font-size:11px;padding:4px 8px;border:1px solid rgba(255,80,80,0.3);border-radius:5px;background:none;color:#ff8080;cursor:pointer;">remove</button>
-              <div class="ep-field" style="border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;padding-top:10px;">
-        <label style="text-transform:none;font-size:12px;font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="ep-step-reveal" style="width:auto;accent-color:var(--gold);" onchange="toggleStepReveal(this.checked)">
-          Reveal body text line by line
-        </label>
-      </div>
-          <div class="ep-field" style="border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;padding-top:10px;">
-        <label style="text-transform:none;font-size:12px;font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="ep-step-reveal" style="width:auto;accent-color:var(--gold);" onchange="toggleStepReveal(this.checked)">
-          Reveal body text line by line
-        </label>
-      </div>
-    </div>
+        </div>
         <div id="ep-mech-img-preview" style="margin-top:8px;"></div>
       </div>
-    </div>
-
-    <div class="ep-group" id="epg-discussion">
-      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
-      <input type="hidden" id="ep-disc-title"><input type="hidden" id="ep-disc-q"><input type="hidden" id="ep-disc-ctx">
-      <div class="ep-field"><label>Time prompt</label><input type="text" id="ep-disc-time" placeholder="e.g. 5 minutes"></div>
-          <div class="ep-field" style="border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;padding-top:10px;">
+      <div class="ep-field" style="border-top:1px solid rgba(255,255,255,0.08);margin-top:10px;padding-top:10px;">
         <label style="text-transform:none;font-size:12px;font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="ep-step-reveal" style="width:auto;accent-color:var(--gold);" onchange="toggleStepReveal(this.checked)">
-          Reveal body text line by line
+          <input type="checkbox" id="ep-step-reveal-mech" style="width:auto;accent-color:var(--gold);" onchange="toggleStepReveal(this.checked)">
+          Reveal bullets one at a time
         </label>
       </div>
     </div>
 
+    <!-- DISCUSSION fields -->
+    <div class="ep-group" id="epg-discussion">
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly. Add discussion points in "discCtx" as one per line — they will appear as bullets.</div>
+      <input type="hidden" id="ep-disc-title"><input type="hidden" id="ep-disc-q"><input type="hidden" id="ep-disc-ctx">
+      <div class="ep-field"><label>Time prompt</label><input type="text" id="ep-disc-time" placeholder="e.g. 5 minutes"></div>
+      <div class="ep-field" style="border-top:1px solid rgba(255,255,255,0.08);margin-top:10px;padding-top:10px;">
+        <label style="text-transform:none;font-size:12px;font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="ep-step-reveal-disc" style="width:auto;accent-color:var(--gold);" onchange="toggleStepReveal(this.checked)">
+          Reveal bullets one at a time
+        </label>
+      </div>
+    </div>
+
+    <!-- CASEBOOK fields -->
     <div class="ep-group" id="epg-casebook">
       <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
       <input type="hidden" id="ep-cb-title"><input type="hidden" id="ep-cb-cite">
       <input type="hidden" id="ep-cb-sit"><input type="hidden" id="ep-cb-ruling"><input type="hidden" id="ep-cb-comment"><input type="hidden" id="ep-cb-principle">
     </div>
 
+    <!-- STATE TITLE fields -->
     <div class="ep-group" id="epg-statetitle">
       <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
       <input type="hidden" id="ep-st2-title"><input type="hidden" id="ep-st2-eyebrow">
       <input type="hidden" id="ep-st2-body"><input type="hidden" id="ep-st2-side">
-          <div class="ep-field" style="border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;padding-top:10px;">
-        <label style="text-transform:none;font-size:12px;font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="ep-step-reveal" style="width:auto;accent-color:var(--gold);" onchange="toggleStepReveal(this.checked)">
-          Reveal body text line by line
-        </label>
-      </div>
     </div>
 
+    <!-- STAT fields -->
     <div class="ep-group" id="epg-stat">
       <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
       <input type="hidden" id="ep-st-title"><input type="hidden" id="ep-st-stat"><input type="hidden" id="ep-st-label">
       <input type="hidden" id="ep-st-body"><input type="hidden" id="ep-st-source">
     </div>
 
-        <div class="ep-field" style="border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;padding-top:10px;">
-        <label style="text-transform:none;font-size:12px;font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="ep-step-reveal" style="width:auto;accent-color:var(--gold);" onchange="toggleStepReveal(this.checked)">
-          Reveal body text line by line
-        </label>
-      </div>
-    </div>
-  <div id="ep-footer">
+    <div id="ep-footer">
     <button class="tb-btn primary" id="ep-save"><i class="ti ti-check"></i> Save</button>
     <button class="tb-btn" id="ep-add"><i class="ti ti-plus"></i> Add slide</button>
     <button class="tb-btn danger" id="ep-delete"><i class="ti ti-trash"></i> Delete</button>
@@ -1038,15 +1005,30 @@ function renderSlideContent(slide, container) {
     dRow.appendChild(dLbl);
     if(d.discTime){const tb=el('div',`font-size:${11*sc}px;padding:${3*sc}px ${12*sc}px;border-radius:${20*sc}px;border:1px solid rgba(242,101,34,0.35);color:rgba(255,255,255,0.45);`);tb.textContent=d.discTime;dRow.appendChild(tb);}
     // Question
-    const qEl=el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;top:${72*sc}px;font-size:${36*sc}px;font-weight:800;color:#fff;line-height:1.18;`);
+    const qEl=el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;top:${72*sc}px;font-size:${32*sc}px;font-weight:800;color:#fff;line-height:1.18;`);
     qEl.dataset.field='discQ'; qEl.dataset.placeholder='Click to add your discussion question...'; const _dqVal=d.discQ||''; if(_dqVal){qEl.textContent=_dqVal;}else{qEl.textContent='Click to add your discussion question...';qEl.dataset.isEmpty='1';qEl.style.opacity='0.4';qEl.style.fontStyle='italic';}
-    // Context
-    const ctxEl=el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;bottom:${36*sc}px;font-size:${15*sc}px;color:rgba(255,255,255,0.4);line-height:1.6;`);
-    ctxEl.dataset.field='discCtx'; ctxEl.dataset.placeholder='Optional context...'; const _dcVal=d.discCtx||''; if(_dcVal){ctxEl.textContent=_dcVal;}else{ctxEl.textContent='Optional context...';ctxEl.dataset.isEmpty='1';ctxEl.style.opacity='0.25';ctxEl.style.fontStyle='italic';}
-    // Big ? top-right
+    // Bullet points (discCtx, one per line)
+    const _bullets=(d.discCtx||'').split('\n').filter(l=>l.trim());
+    const bulletArea=el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;bottom:${28*sc}px;top:${130*sc}px;display:flex;flex-direction:column;justify-content:flex-end;gap:${10*sc}px;`);
+    bulletArea.dataset.field='discCtx'; bulletArea.dataset.placeholder='Add discussion points (one per line)...';
+    if(_bullets.length){
+      _bullets.forEach(b=>{
+        const row=el('div',`display:flex;align-items:flex-start;gap:${12*sc}px;`);
+        const dot=el('div',`width:${8*sc}px;height:${8*sc}px;border-radius:50%;background:${GOLD};flex-shrink:0;margin-top:${7*sc}px;`);
+        const txt=el('div',`font-size:${16*sc}px;color:rgba(255,255,255,0.6);line-height:1.5;`);
+        txt.textContent=b;
+        row.append(dot,txt);
+        bulletArea.appendChild(row);
+      });
+    } else {
+      const ph=el('div',`font-size:${15*sc}px;color:rgba(255,255,255,0.2);font-style:italic;`);
+      ph.dataset.isEmpty='1';
+      ph.textContent='Add discussion points (one per line)...';
+      bulletArea.appendChild(ph);
+    }
     const qm=el('div',`position:absolute;right:${28*sc}px;top:${10*sc}px;font-size:${220*sc}px;font-weight:900;color:rgba(242,101,34,0.12);line-height:1;pointer-events:none;`);
     qm.textContent='?';
-    s.append(dRow,qEl,ctxEl,qm);
+    s.append(dRow,qEl,bulletArea,qm);
 
   // ── CASEBOOK ──────────────────────────────────────────────────────────
   } else if (slide.type === 'casebook') {
@@ -1589,9 +1571,10 @@ function populateEditor() {
     g('ep-em-3hide').checked = !!d.em3hide;
     g('ep-em-4hide').checked = !!d.em4hide;
   }
-  // Sync step-reveal checkbox for all applicable types
-  const revealCb = g('ep-step-reveal');
-  if (revealCb) revealCb.checked = !!d.stepReveal;
+  // Sync step-reveal checkbox for emphasis / mechanics / discussion
+  const revealTypes = { emphasis: 'ep-step-reveal-em', mechanics: 'ep-step-reveal-mech', discussion: 'ep-step-reveal-disc' };
+  const revealId = revealTypes[s.type];
+  if (revealId) { const cb = g(revealId); if (cb) cb.checked = !!d.stepReveal; }
 }
 
 // Toggle hide flag for emphasis items

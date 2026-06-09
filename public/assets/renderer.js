@@ -56,12 +56,10 @@ function renderSlideContent(slide, container) {
   const h = container.offsetHeight || parseInt(document.getElementById('slide-frame').style.height) || 540;
   const sc = w / 960;
   const d = slide.data || {};
-  // stepReveal: true means viewer should hide reveal lines until stepped through
-  const doReveal = !!(d.stepReveal);
 
   const s = document.createElement('div');
   s.style.cssText = `width:${w}px;height:${h}px;position:relative;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;`;
-  if (doReveal) s.dataset.stepReveal = '1';
+  // stepReveal set per slide type below
 
   // ── TITLE ─────────────────────────────────────────────────────────────
   if (slide.type === 'title') {
@@ -88,8 +86,8 @@ function renderSlideContent(slide, container) {
       // subtitle: split into reveal lines
       const subLines = (d.subtitle || slide.body || '').split('\n');
       const subWrap = editable(el('div',`position:absolute;left:${L*sc}px;bottom:${48*sc}px;right:${428*sc}px;font-size:${16*sc}px;color:rgba(255,255,255,0.4);line-height:1.5;`),'subtitle','Subtitle or date');
-      subLines.forEach((line,i) => {
-        const ln = el('div',''); revealLine(ln, i); ln.textContent = line;
+      subLines.forEach((line) => {
+        const ln = el('div',''); ln.textContent = line;
         subWrap.appendChild(ln);
       });
       s.append(ew, tt, divL, subWrap);
@@ -102,8 +100,8 @@ function renderSlideContent(slide, container) {
       const div = el('div',`position:absolute;left:${L*sc}px;bottom:${108*sc}px;width:${48*sc}px;height:${4*sc}px;background:${GOLD};border-radius:2px;`);
       const subLines = (d.subtitle || slide.body || '').split('\n');
       const subWrap = editable(el('div',`position:absolute;left:${L*sc}px;bottom:${48*sc}px;right:${140*sc}px;font-size:${19*sc}px;color:rgba(255,255,255,0.45);line-height:1.5;`),'subtitle','Subtitle or date');
-      subLines.forEach((line,i) => {
-        const ln = el('div',''); revealLine(ln, i); ln.textContent = line;
+      subLines.forEach((line) => {
+        const ln = el('div',''); ln.textContent = line;
         subWrap.appendChild(ln);
       });
       s.append(ew, tt, div, subWrap);
@@ -128,8 +126,8 @@ function renderSlideContent(slide, container) {
     // body: each line is a reveal line
     const bodyLines = (d.vidBody || slide.body || '').split('\n');
     const bodyWrap = editable(el('div',`position:absolute;left:${392*sc}px;top:${82*sc}px;right:${32*sc}px;bottom:${32*sc}px;font-size:${20*sc}px;color:#1a1a1a;line-height:1.7;overflow:hidden;`),'vidBody','Describe the situation here...');
-    bodyLines.forEach((line,i) => {
-      const ln = el('div','white-space:pre-wrap;'); revealLine(ln, i); ln.textContent = line;
+    bodyLines.forEach((line) => {
+      const ln = el('div','white-space:pre-wrap;'); ln.textContent = line;
       bodyWrap.appendChild(ln);
     });
     s.append(panel, eyeLbl, ruleLine, bodyWrap);
@@ -149,8 +147,8 @@ function renderSlideContent(slide, container) {
     // explanation: each line is a reveal line
     const explLines = (d.revBody || slide.body || '').split('\n');
     const explWrap = editable(el('div',`position:absolute;left:${32*sc}px;right:${32*sc}px;top:${h*0.48 + 24*sc}px;bottom:${84*sc}px;font-size:${18*sc}px;color:#1a1a1a;line-height:1.7;overflow:hidden;`),'revBody','Explanation of the ruling...');
-    explLines.forEach((line,i) => {
-      const ln = el('div','white-space:pre-wrap;'); revealLine(ln, i); ln.textContent = line;
+    explLines.forEach((line) => {
+      const ln = el('div','white-space:pre-wrap;'); ln.textContent = line;
       explWrap.appendChild(ln);
     });
     s.append(darkHalf, eyebrow, ruling, rulPill, explWrap, noteFooter(sc, d.revNoteLabel, d.revNote));
@@ -180,7 +178,6 @@ function renderSlideContent(slide, container) {
     const hd = editable(el('div',`position:absolute;left:${32*sc}px;top:${82*sc}px;right:${32*sc}px;font-size:${32*sc}px;font-weight:800;color:${NAVY};line-height:1.1;`),'rcHeading','Rule Change Heading');
     hd.textContent = d.rcHeading || slide.title;
     const ruleCard = el('div',`position:absolute;left:${32*sc}px;top:${142*sc}px;right:${32*sc}px;bottom:${160*sc}px;background:#fff;border-radius:${8*sc}px;border-top:${4*sc}px solid ${GOLD};overflow:hidden;display:flex;`);
-    revealLine(ruleCard, 0);
     const rcImg = d.rcImage || null;
     const ruleCardHdr = el('div',`padding:${10*sc}px ${16*sc}px ${8*sc}px;font-size:${10*sc}px;font-weight:700;letter-spacing:${1.5*sc}px;text-transform:uppercase;color:${GOLD};`);
     ruleCardHdr.textContent = 'New Rule';
@@ -198,14 +195,12 @@ function renderSlideContent(slide, container) {
       ruleCard.appendChild(photoCol);
     }
     const penBar = el('div',`position:absolute;left:0;right:0;bottom:${58*sc}px;height:${100*sc}px;background:rgba(242,101,34,0.08);border-top:${2*sc}px solid rgba(242,101,34,0.25);border-bottom:${2*sc}px solid rgba(242,101,34,0.25);display:flex;align-items:flex-start;padding:${8*sc}px ${32*sc}px;gap:${6*sc}px;flex-direction:column;`);
-    revealLine(penBar, 1);
     const penLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;`);
     penLbl.textContent = 'Penalty';
     const penTxt = editable(el('div',`font-size:${15*sc}px;color:#333;font-weight:500;`),'rcPenalty','Describe the penalty...');
     penTxt.textContent = d.rcPenalty || '';
     penBar.append(penLbl, penTxt);
     const ratBar = el('div',`position:absolute;left:0;right:0;bottom:0;height:${58*sc}px;background:#fff;border-top:${2*sc}px solid #eee;display:flex;align-items:center;padding:0 ${32*sc}px;gap:${10*sc}px;`);
-    revealLine(ratBar, 2);
     const ratLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;flex-shrink:0;`);
     ratLbl.textContent = 'Rationale';
     const ratTxt = editable(el('div',`font-size:${13*sc}px;color:#555;font-style:italic;flex:1;`),'rcNote','Why this rule changed...');
@@ -216,6 +211,7 @@ function renderSlideContent(slide, container) {
   // ── POINTS OF EMPHASIS ────────────────────────────────────────────────
   } else if (slide.type === 'emphasis') {
     s.style.background = NAVY;
+    if (d.stepReveal) s.dataset.stepReveal = '1';
     s.appendChild(el('div',`position:absolute;left:0;top:0;bottom:0;width:${10*sc}px;background:${GOLD};`));
     const seasonL = editable(el('div',`position:absolute;left:${32*sc}px;top:${30*sc}px;font-size:${11*sc}px;font-weight:700;color:${GOLD};letter-spacing:${3*sc}px;text-transform:uppercase;`),'emSeason','IHSA Boys Volleyball');
     seasonL.textContent = d.emSeason || 'IHSA Boys Volleyball';
@@ -252,6 +248,7 @@ function renderSlideContent(slide, container) {
   // ── MECHANICS ─────────────────────────────────────────────────────────
   } else if (slide.type === 'mechanics') {
     s.style.background = '#EFEFED';
+    if (d.stepReveal) s.dataset.stepReveal = '1';
     const mPill = d.mechSub ? pill(sc, d.mechSub, false) : null;
     const mechTopBar = topBar(sc, d.mechHeader || slide.title || 'Mechanics', mPill);
     const mechBarLbl = mechTopBar.querySelector('span');
@@ -301,6 +298,7 @@ function renderSlideContent(slide, container) {
   // ── DISCUSSION ────────────────────────────────────────────────────────
   } else if (slide.type === 'discussion') {
     s.style.background = NAVY;
+    if (d.stepReveal) s.dataset.stepReveal = '1';
     s.appendChild(el('div',`position:absolute;left:${-120*sc}px;top:50%;transform:translateY(-50%);width:${280*sc}px;height:${280*sc}px;border-radius:50%;border:${6*sc}px solid rgba(242,101,34,0.22);`));
     s.appendChild(el('div',`position:absolute;left:${-60*sc}px;top:50%;transform:translateY(-50%);width:${160*sc}px;height:${160*sc}px;border-radius:50%;border:${5*sc}px solid rgba(242,101,34,0.14);`));
     s.appendChild(el('div',`position:absolute;left:0;top:0;bottom:0;width:${10*sc}px;background:${GOLD};`));
@@ -309,15 +307,30 @@ function renderSlideContent(slide, container) {
     dLbl.textContent='Discussion';
     dRow.appendChild(dLbl);
     if(d.discTime){const tb=el('div',`font-size:${11*sc}px;padding:${3*sc}px ${12*sc}px;border-radius:${20*sc}px;border:1px solid rgba(242,101,34,0.35);color:rgba(255,255,255,0.45);`);tb.textContent=d.discTime;dRow.appendChild(tb);}
-    const qEl=editable(el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;top:${72*sc}px;font-size:${36*sc}px;font-weight:800;color:#fff;line-height:1.18;`),'discQ','Discussion question goes here.');
-    revealLine(qEl, 0);
+    // Question — always visible (not a reveal line)
+    const qEl=editable(el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;top:${72*sc}px;font-size:${32*sc}px;font-weight:800;color:#fff;line-height:1.18;`),'discQ','Discussion question goes here.');
     qEl.textContent=d.discQ||'Discussion question goes here.';
-    const ctxEl=editable(el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;bottom:${36*sc}px;font-size:${15*sc}px;color:rgba(255,255,255,0.4);line-height:1.6;`),'discCtx','Additional context...');
-    revealLine(ctxEl, 1);
-    ctxEl.textContent=d.discCtx||'';
+    // Bullet points from discCtx (one per line) — each is a reveal line
+    const bullets=(d.discCtx||'').split('\n').filter(l=>l.trim());
+    const bulletArea=editable(el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;bottom:${28*sc}px;top:${130*sc}px;display:flex;flex-direction:column;justify-content:flex-end;gap:${10*sc}px;`),'discCtx','Add discussion points (one per line)...');
+    if(bullets.length){
+      bullets.forEach((b,i)=>{
+        const row=el('div',`display:flex;align-items:flex-start;gap:${12*sc}px;`);
+        revealLine(row, i);
+        const dot=el('div',`width:${8*sc}px;height:${8*sc}px;border-radius:50%;background:${GOLD};flex-shrink:0;margin-top:${7*sc}px;`);
+        const txt=el('div',`font-size:${16*sc}px;color:rgba(255,255,255,0.6);line-height:1.5;`);
+        txt.textContent=b;
+        row.append(dot,txt);
+        bulletArea.appendChild(row);
+      });
+    } else {
+      const ph=el('div',`font-size:${15*sc}px;color:rgba(255,255,255,0.2);font-style:italic;`);
+      ph.textContent='Add discussion points (one per line)...';
+      bulletArea.appendChild(ph);
+    }
     const qm=el('div',`position:absolute;right:${28*sc}px;top:${10*sc}px;font-size:${220*sc}px;font-weight:900;color:rgba(242,101,34,0.12);line-height:1;pointer-events:none;`);
     qm.textContent='?';
-    s.append(dRow,qEl,ctxEl,qm);
+    s.append(dRow,qEl,bulletArea,qm);
 
   // ── CASEBOOK ──────────────────────────────────────────────────────────
   } else if (slide.type === 'casebook') {
@@ -393,7 +406,7 @@ function renderSlideContent(slide, container) {
     // body lines as reveal lines
     const stBodyLines = (d.stBody||'').split('\n');
     const stBodyWrap=editable(el('div',`position:absolute;left:${28*sc}px;bottom:${28*sc}px;right:${mainRight}px;font-size:${15*sc}px;color:rgba(255,255,255,0.4);line-height:1.6;`),'stBody','Subtitle or supporting text...');
-    stBodyLines.forEach((line,i)=>{ const ln=el('div','');revealLine(ln,i);ln.textContent=line;stBodyWrap.appendChild(ln); });
+    stBodyLines.forEach((line)=>{ const ln=el('div','');ln.textContent=line;stBodyWrap.appendChild(ln); });
     s.append(sidePanel, eyeW, mainTitle, divBar, stBodyWrap);
 
   // ── STAT ──────────────────────────────────────────────────────────────
@@ -403,7 +416,7 @@ function renderSlideContent(slide, container) {
     // stat body lines as reveal lines
     const stBodyLines2 = (d.stBody||'').split('\n');
     const stBodyWrap2=editable(el('div',`font-size:${17*sc}px;color:rgba(255,255,255,0.55);line-height:1.7;`),'stBody','Supporting body text...');
-    stBodyLines2.forEach((line,i)=>{ const ln=el('div','white-space:pre-wrap;');revealLine(ln,i);ln.textContent=line;stBodyWrap2.appendChild(ln); });
+    stBodyLines2.forEach((line)=>{ const ln=el('div','white-space:pre-wrap;');ln.textContent=line;stBodyWrap2.appendChild(ln); });
     if(d.stSource){const src=editable(el('div',`font-size:${11*sc}px;color:rgba(255,255,255,0.22);font-style:italic;margin-top:${16*sc}px;`),'stSource','Source');src.textContent=d.stSource;rPanel.appendChild(src);}
     rPanel.appendChild(stBodyWrap2);
     s.appendChild(el('div',`position:absolute;left:0;top:0;bottom:0;width:${10*sc}px;background:${GOLD};`));

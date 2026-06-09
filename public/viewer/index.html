@@ -399,8 +399,9 @@ function setView(wantVideo){
 function advanceNext(){
   const slide=slides[currentSlide];
   if(!slide)return;
-  // If step-reveal is active and there are unrevealed lines, reveal next one
-  if(slide.data&&slide.data.stepReveal&&slide.type!=="casebook"&&!allRevealed()){
+  // If step-reveal is active on emphasis/mechanics/discussion and lines remain, reveal next one
+  const revealTypes = ['emphasis','mechanics','discussion'];
+  if(slide.data&&slide.data.stepReveal&&revealTypes.includes(slide.type)&&!allRevealed()){
     revealNext();
     return;
   }
@@ -427,7 +428,7 @@ document.getElementById("tb-prev").addEventListener("click",function(){
   const slide=slides[currentSlide];
   if(!slide)return;
   // If step-reveal is active and some lines are shown, hide all and reset
-  if(slide.data&&slide.data.stepReveal&&slide.type!=="casebook"&&revealStep>0){
+  if(slide.data&&slide.data.stepReveal&&['emphasis','mechanics','discussion'].includes(slide.type)&&revealStep>0){
     initRevealLines(); return;
   }
   if(slide.type==="video"&&showingVideo){setView(false);return;}
