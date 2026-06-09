@@ -234,8 +234,8 @@ function renderSlideContent(slide, container) {
       : allItems.filter(it=>it.t.trim() && !it.hidden);
     const avail = h - 140*sc, itemH = Math.min(avail / Math.max(items.length,1), 98*sc);
     items.forEach((item,i)=>{
-      const opacity = (isEditor && item.hidden) ? '0.3' : '1';
-      const row = el('div',`position:absolute;left:${32*sc}px;right:${32*sc}px;top:${128*sc + i*itemH}px;height:${itemH}px;display:flex;align-items:center;gap:${20*sc}px;opacity:${opacity};`);
+      const row = el('div',`position:absolute;left:${32*sc}px;right:${32*sc}px;top:${128*sc + i*itemH}px;height:${itemH}px;display:flex;align-items:center;gap:${20*sc}px;`);
+      if (isEditor && item.hidden) row.dataset.dim = '1';
       revealLine(row, i);
       const num = el('div',`width:${40*sc}px;height:${40*sc}px;border-radius:${6*sc}px;background:${GOLD};display:flex;align-items:center;justify-content:center;font-size:${18*sc}px;font-weight:800;color:#fff;flex-shrink:0;`);
       num.textContent=String(i+1);

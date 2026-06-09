@@ -51,9 +51,11 @@ html,body{height:100%;background:#000;color:#fff;font-family:"Segoe UI",system-u
 }
 .xdissolve-overlay.fade-out { opacity: 0; }
 
-/* Reveal lines — hidden until stepped to */
-[data-step-reveal="1"] [data-reveal-line] { opacity: 0; transform: translateY(6px); transition: opacity 0.3s ease, transform 0.3s ease; }
-[data-step-reveal="1"] [data-reveal-line].revealed { opacity: 1; transform: none; }
+/* Reveal lines — hidden until stepped to. Use visibility so layout is preserved. */
+[data-step-reveal="1"] [data-reveal-line] { opacity: 0 !important; transition: opacity 0.35s ease; }
+[data-step-reveal="1"] [data-reveal-line].revealed { opacity: 1 !important; }
+/* Editor: dim hidden emphasis items */
+[data-dim="1"] { opacity: 0.25; }
 
 /* Casebook phase-1 animation */
 @keyframes cb-slide-left { from { opacity:0; transform:translateX(-28px); } to { opacity:1; transform:none; } }
