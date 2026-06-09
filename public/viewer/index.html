@@ -251,6 +251,8 @@ function showSlide(idx){
   const s=slides[currentSlide];
   document.getElementById("tb-slide-indicator").textContent=(currentSlide+1)+" / "+slides.length;
   document.getElementById("tb-slide-title").textContent=(s&&s.title)||"";
+  const hasVideo = s && (s.type==="video" || s.type==="casebook");
+  document.getElementById("tb-video-toggle").style.display = hasVideo ? "" : "none";
 }
 
 function setView(wantVideo){

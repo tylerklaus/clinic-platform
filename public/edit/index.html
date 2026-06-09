@@ -329,6 +329,7 @@ html, body {
 .dot-mechanics { background: #8e6bbf; }
 .dot-discussion { background: #e8b84b; }
 .dot-casebook { background: #4caf82; }
+.dot-statetitle { background: #7ba7d4; }
 .dot-stat { background: #e05a2b; }
 .dot-embed { background: #aaa; }
 
@@ -450,6 +451,7 @@ html, body {
         <option value="mechanics">Mechanics / positioning</option>
         <option value="discussion">Discussion question</option>
         <option value="casebook">Casebook play</option>
+        <option value="statetitle">State title</option>
         <option value="stat">Stat / callout</option>
         <option value="embed">Embed / Slido</option>
       </select>
@@ -525,7 +527,7 @@ html, body {
     <div class="ep-group" id="epg-rulechange">
       <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
       <input type="hidden" id="ep-rc-title"><input type="hidden" id="ep-rc-rule"><input type="hidden" id="ep-rc-heading">
-      <input type="hidden" id="ep-rc-old"><input type="hidden" id="ep-rc-new"><input type="hidden" id="ep-rc-note">
+      <input type="hidden" id="ep-rc-old"><input type="hidden" id="ep-rc-new"><input type="hidden" id="ep-rc-penalty"><input type="hidden" id="ep-rc-note">
       <div class="ep-field">
         <label>Photo <span style="opacity:.5;font-weight:400;">(optional, shown beside rule text)</span></label>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -541,10 +543,25 @@ html, body {
     </div>
 
     <div class="ep-group" id="epg-emphasis">
-      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly. Check "Hide" to skip an item without deleting it.</div>
       <input type="hidden" id="ep-em-title"><input type="hidden" id="ep-em-header"><input type="hidden" id="ep-em-season">
       <input type="hidden" id="ep-em-1"><input type="hidden" id="ep-em-1d"><input type="hidden" id="ep-em-2"><input type="hidden" id="ep-em-2d">
       <input type="hidden" id="ep-em-3"><input type="hidden" id="ep-em-3d"><input type="hidden" id="ep-em-4"><input type="hidden" id="ep-em-4d">
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:2px;">Visibility</div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.6);cursor:pointer;">
+          <input type="checkbox" id="ep-em-1hide" style="width:auto;accent-color:var(--gold);" onchange="toggleEmHide(1,this.checked)"> Hide item 1
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.6);cursor:pointer;">
+          <input type="checkbox" id="ep-em-2hide" style="width:auto;accent-color:var(--gold);" onchange="toggleEmHide(2,this.checked)"> Hide item 2
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.6);cursor:pointer;">
+          <input type="checkbox" id="ep-em-3hide" style="width:auto;accent-color:var(--gold);" onchange="toggleEmHide(3,this.checked)"> Hide item 3
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.6);cursor:pointer;">
+          <input type="checkbox" id="ep-em-4hide" style="width:auto;accent-color:var(--gold);" onchange="toggleEmHide(4,this.checked)"> Hide item 4
+        </label>
+      </div>
     </div>
 
     <!-- MECHANICS fields -->
@@ -575,7 +592,13 @@ html, body {
     <div class="ep-group" id="epg-casebook">
       <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
       <input type="hidden" id="ep-cb-title"><input type="hidden" id="ep-cb-cite">
-      <input type="hidden" id="ep-cb-sit"><input type="hidden" id="ep-cb-ruling"><input type="hidden" id="ep-cb-principle">
+      <input type="hidden" id="ep-cb-sit"><input type="hidden" id="ep-cb-ruling"><input type="hidden" id="ep-cb-comment"><input type="hidden" id="ep-cb-principle">
+    </div>
+
+    <div class="ep-group" id="epg-statetitle">
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
+      <input type="hidden" id="ep-st2-title"><input type="hidden" id="ep-st2-eyebrow">
+      <input type="hidden" id="ep-st2-body"><input type="hidden" id="ep-st2-side">
     </div>
 
     <div class="ep-group" id="epg-stat">
@@ -803,8 +826,8 @@ function renderSlideContent(slide, container) {
     hd.dataset.field='rcHeading'; hd.dataset.placeholder='Rule heading';
     const _rchVal=d.rcHeading||slide.title||'';
     if(_rchVal){hd.textContent=_rchVal;}else{hd.textContent='Rule heading';hd.dataset.isEmpty='1';hd.style.opacity='0.35';}
-    // New rule — full width card
-    const ruleCard = el('div',`position:absolute;left:${32*sc}px;top:${142*sc}px;right:${32*sc}px;bottom:${110*sc}px;background:#fff;border-radius:${8*sc}px;border-top:${4*sc}px solid ${GOLD};overflow:hidden;display:flex;`);
+    // New rule — full width card (raised bottom to make room for penalty + rationale)
+    const ruleCard = el('div',`position:absolute;left:${32*sc}px;top:${142*sc}px;right:${32*sc}px;bottom:${162*sc}px;background:#fff;border-radius:${8*sc}px;border-top:${4*sc}px solid ${GOLD};overflow:hidden;display:flex;`);
     // If photo present, split: text left, photo right
     const rcImg = rcImageSrc[currentSlide];
     const textWidth = rcImg ? `${480*sc}px` : '100%';
@@ -825,16 +848,25 @@ function renderSlideContent(slide, container) {
       photoCol.appendChild(photo);
       ruleCard.appendChild(photoCol);
     }
-    // Rationale bar at bottom
-    const ratBar = el('div',`position:absolute;left:0;right:0;bottom:0;height:${100*sc}px;background:#fff;border-top:${3*sc}px solid ${GOLD};display:flex;align-items:flex-start;padding:${10*sc}px ${32*sc}px;gap:${14*sc}px;flex-direction:column;`);
-    const ratLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;`);
+    // Penalty bar (between rule card and rationale)
+    const penBar = el('div',`position:absolute;left:0;right:0;bottom:${58*sc}px;height:${100*sc}px;background:rgba(242,101,34,0.08);border-top:${2*sc}px solid rgba(242,101,34,0.25);border-bottom:${2*sc}px solid rgba(242,101,34,0.25);display:flex;align-items:flex-start;padding:${8*sc}px ${32*sc}px;gap:${6*sc}px;flex-direction:column;`);
+    const penLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;`);
+    penLbl.textContent = 'Penalty';
+    const penTxt = el('div',`font-size:${15*sc}px;color:#333;font-weight:500;width:100%;min-height:${20*sc}px;`);
+    penTxt.dataset.field='rcPenalty'; penTxt.dataset.placeholder='Describe the penalty...';
+    const _rcpVal=d.rcPenalty||'';
+    if(_rcpVal){penTxt.textContent=_rcpVal;}else{penTxt.textContent='Describe the penalty...';penTxt.dataset.isEmpty='1';penTxt.style.opacity='0.35';penTxt.style.fontStyle='italic';}
+    penBar.append(penLbl, penTxt);
+    // Rationale bar at very bottom
+    const ratBar = el('div',`position:absolute;left:0;right:0;bottom:0;height:${58*sc}px;background:#fff;border-top:${2*sc}px solid #eee;display:flex;align-items:center;padding:0 ${32*sc}px;gap:${10*sc}px;`);
+    const ratLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;flex-shrink:0;`);
     ratLbl.textContent = 'Rationale';
-    const ratTxt = el('div',`font-size:${14*sc}px;color:#555;font-style:italic;width:100%;`);
+    const ratTxt = el('div',`font-size:${13*sc}px;color:#555;font-style:italic;flex:1;min-height:${16*sc}px;`);
     ratTxt.dataset.field='rcNote'; ratTxt.dataset.placeholder='Explain the reason for this rule change...';
     const _rcNoteVal=d.rcNote||'';
     if(_rcNoteVal){ratTxt.textContent=_rcNoteVal;}else{ratTxt.textContent='Explain the reason for this rule change...';ratTxt.dataset.isEmpty='1';ratTxt.style.opacity='0.4';}
     ratBar.append(ratLbl, ratTxt);
-    s.append(hd, ruleCard, ratBar);
+    s.append(hd, ruleCard, penBar, ratBar);
 
   // ── POINTS OF EMPHASIS ────────────────────────────────────────────────
   } else if (slide.type === 'emphasis') {
@@ -849,19 +881,23 @@ function renderSlideContent(slide, container) {
     hd2.dataset.placeholder = 'Points of Emphasis';
     if(d.emHeader){hd2.textContent=d.emHeader;}else{hd2.textContent='Points of Emphasis';hd2.dataset.isEmpty='1';hd2.style.opacity='0.4';}
     s.appendChild(el('div',`position:absolute;left:${32*sc}px;top:${118*sc}px;right:${32*sc}px;height:${1*sc}px;background:rgba(255,255,255,0.1);`));
-    // Show all 4 item slots — empty ones show as placeholders
+    // Show all 4 item slots — editor shows hidden ones dimmed, viewer skips them
     const allItems = [
-      [d.em1||'', d.em1d||'', 'em1', 'em1d'],
-      [d.em2||'', d.em2d||'', 'em2', 'em2d'],
-      [d.em3||'', d.em3d||'', 'em3', 'em3d'],
-      [d.em4||'', d.em4d||'', 'em4', 'em4d'],
+      [d.em1||'', d.em1d||'', 'em1', 'em1d', !!d.em1hide],
+      [d.em2||'', d.em2d||'', 'em2', 'em2d', !!d.em2hide],
+      [d.em3||'', d.em3d||'', 'em3', 'em3d', !!d.em3hide],
+      [d.em4||'', d.em4d||'', 'em4', 'em4d', !!d.em4hide],
     ];
-    const filledCount = allItems.filter(([t])=>t.trim()).length || 1;
+    // Always show all 4 in editor (so they're editable); viewer only shows non-hidden
+    const visibleItems = allItems; // editor shows all
+    const filledCount = allItems.filter(([t,,,,hidden])=>t.trim()&&!hidden).length || 1;
     const avail = h - 140*sc, itemH = Math.min(avail / Math.max(filledCount,1), 98*sc);
-    allItems.forEach(([t1,t2,f1,f2],i)=>{
-      const top = 128*sc + i*Math.min(itemH, 90*sc);
-      if(top + 50*sc > h) return; // don't overflow
-      const row = el('div',`position:absolute;left:${32*sc}px;right:${32*sc}px;top:${top}px;display:flex;align-items:flex-start;gap:${20*sc}px;min-height:${40*sc}px;`);
+    let rowIdx = 0;
+    allItems.forEach(([t1,t2,f1,f2,hidden],i)=>{
+      const top = 128*sc + rowIdx*Math.min(itemH, 90*sc);
+      if(top + 50*sc > h) return;
+      const row = el('div',`position:absolute;left:${32*sc}px;right:${32*sc}px;top:${top}px;display:flex;align-items:flex-start;gap:${20*sc}px;min-height:${40*sc}px;${hidden?'opacity:0.25;':''}`);
+      if (!hidden) rowIdx++;
       const num = el('div',`width:${40*sc}px;height:${40*sc}px;border-radius:${6*sc}px;background:${GOLD};display:flex;align-items:center;justify-content:center;font-size:${18*sc}px;font-weight:800;color:#fff;flex-shrink:0;`);
       num.textContent=String(i+1);
       const right2=el('div',`flex:1;`);
@@ -882,7 +918,15 @@ function renderSlideContent(slide, container) {
   } else if (slide.type === 'mechanics') {
     s.style.background = '#EFEFED';
     const mPill = d.mechSub ? pill(sc, d.mechSub, false) : null;
-    s.appendChild(topBar(sc, d.mechHeader || slide.title, mPill));
+    const mechTopBar = topBar(sc, d.mechHeader || slide.title || 'Mechanics', mPill);
+    // Make the bar label text editable
+    const mechBarLbl = mechTopBar.querySelector('span');
+    if (mechBarLbl) { mechBarLbl.dataset.field = 'mechHeader'; mechBarLbl.dataset.placeholder = 'Mechanics heading'; }
+    s.appendChild(mechTopBar);
+    // Editable title/position name below top bar, right side
+    const mechTitle = el('div',`position:absolute;left:${416*sc}px;top:${72*sc}px;right:${32*sc}px;font-size:${22*sc}px;font-weight:800;color:${NAVY};line-height:1.1;min-height:${24*sc}px;`);
+    mechTitle.dataset.field='mechTitle'; mechTitle.dataset.placeholder='Position or mechanic name';
+    const _mtVal=d.mechTitle||''; if(_mtVal){mechTitle.textContent=_mtVal;}else{mechTitle.textContent='Position or mechanic name';mechTitle.dataset.isEmpty='1';mechTitle.style.opacity='0.3';mechTitle.style.fontStyle='italic';}
     // Diagram box
     const dBox = el('div',`position:absolute;left:${32*sc}px;top:${80*sc}px;width:${368*sc}px;bottom:${32*sc}px;background:#fff;border-radius:${8*sc}px;overflow:hidden;`);
     const mechImg = mechImageSrc[currentSlide];
@@ -905,16 +949,25 @@ function renderSlideContent(slide, container) {
     }
     // Points
     const pts=(d.mechPoints||'').split('\n').filter(p=>p.trim());
-    const ptArea=el('div',`position:absolute;left:${416*sc}px;right:${32*sc}px;top:${80*sc}px;bottom:${80*sc}px;display:flex;flex-direction:column;justify-content:center;gap:${12*sc}px;`);
-    pts.forEach(pt=>{
-      const r=el('div',`display:flex;align-items:flex-start;gap:${14*sc}px;`);
-      const dot=el('div',`width:${10*sc}px;height:${10*sc}px;border-radius:50%;background:${GOLD};flex-shrink:0;margin-top:${6*sc}px;`);
-      const t=el('div',`font-size:${18*sc}px;color:#1a1a1a;line-height:1.5;`);
-      t.textContent=pt;
-      r.append(dot,t);
-      ptArea.appendChild(r);
-    });
-    s.append(dBox, ptArea, noteFooter(sc, 'Note', d.mechNote||'', null, 'mechNote'));
+    const ptArea=el('div',`position:absolute;left:${416*sc}px;right:${32*sc}px;top:${108*sc}px;bottom:${80*sc}px;display:flex;flex-direction:column;justify-content:center;gap:${12*sc}px;`);
+    if (pts.length) {
+      pts.forEach(pt=>{
+        const r=el('div',`display:flex;align-items:flex-start;gap:${14*sc}px;`);
+        const dot=el('div',`width:${10*sc}px;height:${10*sc}px;border-radius:50%;background:${GOLD};flex-shrink:0;margin-top:${6*sc}px;`);
+        const t=el('div',`font-size:${18*sc}px;color:#1a1a1a;line-height:1.5;`);
+        t.dataset.field='mechPoints'; t.textContent=pt;
+        r.append(dot,t);
+        ptArea.appendChild(r);
+      });
+    } else {
+      // Placeholder so the area is always clickable
+      const phTxt=el('div',`font-size:${17*sc}px;color:#bbb;font-style:italic;`);
+      phTxt.dataset.field='mechPoints'; phTxt.dataset.placeholder='Click to add bullet points (one per line)...';
+      phTxt.textContent='Click to add bullet points (one per line)...';
+      phTxt.dataset.isEmpty='1';
+      ptArea.appendChild(phTxt);
+    }
+    s.append(dBox, mechTitle, ptArea, noteFooter(sc, 'Note', d.mechNote||'', null, 'mechNote'));
 
   // ── DISCUSSION ────────────────────────────────────────────────────────
   } else if (slide.type === 'discussion') {
@@ -952,8 +1005,8 @@ function renderSlideContent(slide, container) {
       const shtxt=el('span','');shtxt.textContent='Situation';
       const hint=el('span',`font-size:${11*sc}px;color:#ccc;font-weight:400;letter-spacing:0;text-transform:none;`);hint.textContent='Advance for ruling →';
       sh.append(shtxt,hint);
-      const st=el('div',`padding:${28*sc}px ${32*sc}px;font-size:${22*sc}px;color:#222;line-height:1.7;white-space:pre-wrap;`);
-      st.textContent=d.cbSit||'';
+      const st=el('div',`padding:${28*sc}px ${32*sc}px;font-size:${22*sc}px;color:#222;line-height:1.7;white-space:pre-wrap;min-height:${60*sc}px;`);
+      st.dataset.field='cbSit'; st.dataset.placeholder='Describe the situation...'; const _cbSitP=d.cbSit||''; if(_cbSitP){st.textContent=_cbSitP;}else{st.textContent='Describe the situation...';st.dataset.isEmpty='1';st.style.opacity='0.4';st.style.fontStyle='italic';}
       sb.append(sh,st);
       const hb=el('div',`position:absolute;left:0;right:0;bottom:0;height:${56*sc}px;background:${NAVY};display:flex;align-items:center;justify-content:center;`);
       const hbTxt=el('span',`font-size:${13*sc}px;color:rgba(255,255,255,0.3);letter-spacing:${0.5*sc}px;`);
@@ -961,19 +1014,61 @@ function renderSlideContent(slide, container) {
       hb.appendChild(hbTxt);
       s.append(sb,hb);
     } else {
-      const cw2=(w-80*sc)/2;
-      const mkCol=(left,hdrT,body2,isRuling)=>{
-        const col=el('div',`position:absolute;left:${left}px;top:${80*sc}px;width:${cw2}px;bottom:${72*sc}px;background:#fff;border-radius:${8*sc}px;overflow:hidden;${isRuling?`border-top:${4*sc}px solid ${GOLD}`:''}`);
-        const ch=el('div',`padding:${10*sc}px ${16*sc}px;font-size:${10*sc}px;font-weight:700;letter-spacing:${2*sc}px;text-transform:uppercase;color:${isRuling?GOLD:'#aaa'};background:${isRuling?'rgba(242,101,34,0.06)':'#f5f5f3'};`);
-        ch.textContent=hdrT;
-        const cb2=el('div',`padding:${16*sc}px;font-size:${17*sc}px;color:${isRuling?'#111':'#666'};line-height:1.65;white-space:pre-wrap;${isRuling?'font-weight:500;':''}`);
-        cb2.textContent=body2;
-        col.append(ch,cb2);
-        return col;
-      };
-      s.append(mkCol(32*sc,'Situation',d.cbSit||'',false), mkCol(32*sc+cw2+16*sc,'Ruling',d.cbRuling||'',true));
-      s.appendChild(noteFooter(sc, 'Key Principle', d.cbPrinciple||'', null, 'cbPrinciple'));
+      // ── Phase 1: Situation | Ruling + Comment ──
+      const leftW = (w - 80*sc) * 0.42;
+      const rightW = (w - 80*sc) * 0.58;
+      // Left: situation (greyed)
+      const leftCol=el('div',`position:absolute;left:${32*sc}px;top:${80*sc}px;width:${leftW}px;bottom:${8*sc}px;background:#fff;border-radius:${8*sc}px;overflow:hidden;`);
+      const lch=el('div',`padding:${10*sc}px ${16*sc}px;font-size:${10*sc}px;font-weight:700;letter-spacing:${2*sc}px;text-transform:uppercase;color:#aaa;background:#f5f5f3;`);
+      lch.textContent='Situation';
+      const lcb=el('div',`padding:${14*sc}px ${16*sc}px;font-size:${15*sc}px;color:#888;line-height:1.6;white-space:pre-wrap;`);
+      lcb.dataset.field='cbSit'; lcb.dataset.placeholder='Describe the situation...'; const _cbs=d.cbSit||''; if(_cbs){lcb.textContent=_cbs;}else{lcb.textContent='Describe the situation...';lcb.dataset.isEmpty='1';lcb.style.opacity='0.4';lcb.style.fontStyle='italic';}
+      leftCol.append(lch,lcb);
+      // Right: ruling card + comment card stacked
+      const rightX = 32*sc + leftW + 16*sc;
+      const rightCol=el('div',`position:absolute;left:${rightX}px;top:${80*sc}px;width:${rightW}px;bottom:${8*sc}px;display:flex;flex-direction:column;gap:${10*sc}px;`);
+      // Ruling card (gold accent)
+      const rulingCard=el('div',`background:#fff;border-radius:${8*sc}px;border-top:${4*sc}px solid ${GOLD};flex:0 0 auto;overflow:hidden;`);
+      const rch=el('div',`padding:${8*sc}px ${16*sc}px;font-size:${10*sc}px;font-weight:700;letter-spacing:${2*sc}px;text-transform:uppercase;color:${GOLD};background:rgba(242,101,34,0.06);`);
+      rch.textContent='Ruling';
+      const rcb=el('div',`padding:${12*sc}px ${16*sc}px;font-size:${18*sc}px;color:#111;line-height:1.55;white-space:pre-wrap;font-weight:600;min-height:${40*sc}px;`);
+      rcb.dataset.field='cbRuling'; rcb.dataset.placeholder='State the ruling...'; const _cbr=d.cbRuling||''; if(_cbr){rcb.textContent=_cbr;}else{rcb.textContent='State the ruling...';rcb.dataset.isEmpty='1';rcb.style.opacity='0.35';rcb.style.fontStyle='italic';}
+      rulingCard.append(rch,rcb);
+      // Comment card (why / rationale)
+      const commentCard=el('div',`background:#fff;border-radius:${8*sc}px;flex:1;overflow:hidden;border-left:${3*sc}px solid rgba(0,0,0,0.06);`);
+      const cch=el('div',`padding:${8*sc}px ${16*sc}px;font-size:${10*sc}px;font-weight:700;letter-spacing:${2*sc}px;text-transform:uppercase;color:#888;background:#f8f8f6;`);
+      cch.textContent='Comment';
+      const ccb=el('div',`padding:${12*sc}px ${16*sc}px;font-size:${15*sc}px;color:#555;line-height:1.65;white-space:pre-wrap;font-style:italic;min-height:${40*sc}px;`);
+      ccb.dataset.field='cbComment'; ccb.dataset.placeholder='Explain why this is the ruling...'; const _cbc=d.cbComment||''; if(_cbc){ccb.textContent=_cbc;}else{ccb.textContent='Explain why this is the ruling...';ccb.dataset.isEmpty='1';ccb.style.opacity='0.35';}
+      commentCard.append(cch,ccb);
+      rightCol.append(rulingCard, commentCard);
+      s.append(leftCol, rightCol);
     }
+
+  // ── STATE TITLE ───────────────────────────────────────────────────────
+  } else if (slide.type === 'statetitle') {
+    s.style.background = NAVY;
+    s.appendChild(el('div',`position:absolute;left:0;top:0;bottom:0;width:${10*sc}px;background:${GOLD};`));
+    s.appendChild(el('div',`position:absolute;right:${-60*sc}px;top:${-60*sc}px;width:${320*sc}px;height:${320*sc}px;border-radius:50%;border:${5*sc}px solid rgba(242,101,34,0.12);`));
+    s.appendChild(el('div',`position:absolute;right:${20*sc}px;top:${20*sc}px;width:${160*sc}px;height:${160*sc}px;border-radius:50%;border:${3*sc}px solid rgba(242,101,34,0.07);`));
+    // Right sidebar
+    const sideW = 220*sc;
+    const sidePanel=el('div',`position:absolute;right:0;top:0;bottom:0;width:${sideW}px;background:rgba(255,255,255,0.04);border-left:${1*sc}px solid rgba(255,255,255,0.07);display:flex;flex-direction:column;justify-content:center;padding:${32*sc}px ${20*sc}px;gap:${16*sc}px;`);
+    const sideLabel=el('div',`font-size:${9*sc}px;font-weight:700;color:${GOLD};letter-spacing:${3*sc}px;text-transform:uppercase;margin-bottom:${4*sc}px;`);
+    sideLabel.textContent='Details';
+    const sideTxt=el('div',`font-size:${13*sc}px;color:rgba(255,255,255,0.5);line-height:1.7;white-space:pre-wrap;min-height:${20*sc}px;`);
+    sideTxt.dataset.field='stSideText'; sideTxt.dataset.placeholder='Location, date, or other details...'; const _stside=d.stSideText||''; if(_stside){sideTxt.textContent=_stside;}else{sideTxt.textContent='Location, date, or other details...';sideTxt.dataset.isEmpty='1';sideTxt.style.opacity='0.4';sideTxt.style.fontStyle='italic';}
+    sidePanel.append(sideLabel, sideTxt);
+    // Main content area
+    const mainRight = sideW + 32*sc;
+    const eyeW=el('div',`position:absolute;left:${28*sc}px;top:${40*sc}px;right:${mainRight}px;font-size:${11*sc}px;font-weight:700;color:${GOLD};letter-spacing:${3*sc}px;text-transform:uppercase;`);
+    eyeW.dataset.field='stEyebrow'; const _steye=d.stEyebrow||'IHSA · Boys Volleyball'; eyeW.textContent=_steye;
+    const mainTitle=el('div',`position:absolute;left:${28*sc}px;top:${h*0.22}px;right:${mainRight}px;font-size:${62*sc}px;font-weight:800;color:#fff;line-height:0.93;letter-spacing:${-1*sc}px;word-break:break-word;`);
+    mainTitle.dataset.field='stTitle'; mainTitle.dataset.placeholder='State Title'; const _stt=d.stTitle||slide.title||''; if(_stt){mainTitle.textContent=_stt;}else{mainTitle.textContent='State Title';mainTitle.dataset.isEmpty='1';mainTitle.style.opacity='0.4';}
+    const divBar=el('div',`position:absolute;left:${28*sc}px;bottom:${88*sc}px;width:${44*sc}px;height:${4*sc}px;background:${GOLD};border-radius:2px;`);
+    const bodyEl=el('div',`position:absolute;left:${28*sc}px;bottom:${28*sc}px;right:${mainRight}px;font-size:${15*sc}px;color:rgba(255,255,255,0.4);line-height:1.6;white-space:pre-line;min-height:${20*sc}px;`);
+    bodyEl.dataset.field='stBody'; bodyEl.dataset.placeholder='Subtitle or supporting text...'; const _stb=d.stBody||''; if(_stb){bodyEl.textContent=_stb;}else{bodyEl.textContent='Subtitle or supporting text...';bodyEl.dataset.isEmpty='1';bodyEl.style.opacity='0.3';bodyEl.style.fontStyle='italic';}
+    s.append(sidePanel, eyeW, mainTitle, divBar, bodyEl);
 
   // ── STAT ──────────────────────────────────────────────────────────────
   } else if (slide.type === 'stat') {
@@ -1042,6 +1137,9 @@ function showSlide(idx) {
 
   document.getElementById('tb-slide-indicator').textContent = `${currentSlide+1} / ${slides.length}`;
   document.getElementById('tb-slide-title').textContent = slide.title;
+  // Show video button only on slides that have video (video type) or casebook (has situation phase)
+  const hasVideo = slide.type === 'video' || slide.type === 'casebook';
+  document.getElementById('tb-video-toggle').style.display = hasVideo ? '' : 'none';
   renderEditorList();
   populateEditor();
 }
@@ -1096,7 +1194,7 @@ function makeEditable(container, slide) {
 
     el.addEventListener('keydown', e => {
       if (e.key === 'Escape') { el.blur(); }
-      const multiline = ['subtitle','vidBody','panelText','revBody','rcOld','rcNew','mechPoints','discQ','discCtx','cbSit','cbRuling','stBody'];
+      const multiline = ['subtitle','vidBody','panelText','revBody','rcOld','rcNew','rcPenalty','mechPoints','discQ','discCtx','cbSit','cbRuling','cbComment','stBody','stSideText'];
       if (e.key === 'Enter' && !multiline.includes(field)) {
         e.preventDefault();
         el.blur();
@@ -1132,6 +1230,7 @@ function buildFieldMap(slide) {
     add(d.rcRule || '', 'rcRule');
     add(d.rcOld || '', 'rcOld');
     add(d.rcNew || '', 'rcNew');
+    add(d.rcPenalty || '', 'rcPenalty');
     add(d.rcNote || '', 'rcNote');
   } else if (slide.type === 'emphasis') {
     add(d.emHeader || 'Points of Emphasis', 'emHeader');
@@ -1139,6 +1238,7 @@ function buildFieldMap(slide) {
     ['em1','em1d','em2','em2d','em3','em3d','em4','em4d'].forEach(k => add(d[k], k));
   } else if (slide.type === 'mechanics') {
     add(d.mechHeader || slide.title, 'mechHeader');
+    add(d.mechTitle || '', 'mechTitle');
     add(d.mechSub || '', 'mechSub');
     add(d.mechNote || '', 'mechNote');
     if (d.mechPoints) d.mechPoints.split('\n').forEach((pt, i) => add(pt.trim(), 'mechPoints'));
@@ -1150,7 +1250,13 @@ function buildFieldMap(slide) {
     add(d.cbCite || '', 'cbCite');
     add(d.cbSit || '', 'cbSit');
     add(d.cbRuling || '', 'cbRuling');
+    add(d.cbComment || '', 'cbComment');
     add(d.cbPrinciple || '', 'cbPrinciple');
+  } else if (slide.type === 'statetitle') {
+    add(d.stEyebrow || 'IHSA · Boys Volleyball', 'stEyebrow');
+    add(d.stTitle || slide.title, 'stTitle');
+    add(d.stBody || '', 'stBody');
+    add(d.stSideText || '', 'stSideText');
   } else if (slide.type === 'stat') {
     add(d.stTitle || slide.title, 'stTitle');
     add(d.stStat || '\u2014', 'stStat');
@@ -1178,7 +1284,7 @@ function writeField(slide, field, value) {
   }
   slide.data[field] = value;
   // Keep top-level slide fields in sync
-  if (field === 'title' || field === 'vidTitle' || field === 'revRuling') slide.title = value;
+  if (field === 'title' || field === 'vidTitle' || field === 'revRuling' || field === 'stTitle') slide.title = value;
   if (field === 'revRule') slide.rule = value;
 }
 
@@ -1393,7 +1499,7 @@ function renderEditorList() {
 function g(id) { return document.getElementById(id); }
 
 function showGroups(type) {
-  ['title','video','reveal','embed','rulechange','emphasis','mechanics','discussion','casebook','stat'].forEach(t => {
+  ['title','video','reveal','embed','rulechange','emphasis','mechanics','discussion','casebook','statetitle','stat'].forEach(t => {
     const el = g('epg-' + t);
     if (el) el.style.display = t === type ? 'block' : 'none';
   });
@@ -1422,7 +1528,21 @@ function populateEditor() {
   } else if (s.type === 'rulechange') {
     if (s.data && s.data.rcImage) rcImageSrc[currentSlide] = s.data.rcImage;
     updateRcImgUI();
+  } else if (s.type === 'emphasis') {
+    g('ep-em-1hide').checked = !!d.em1hide;
+    g('ep-em-2hide').checked = !!d.em2hide;
+    g('ep-em-3hide').checked = !!d.em3hide;
+    g('ep-em-4hide').checked = !!d.em4hide;
   }
+}
+
+// Toggle hide flag for emphasis items
+function toggleEmHide(num, hidden) {
+  const slide = slides[currentSlide];
+  if (!slide.data) slide.data = {};
+  slide.data['em' + num + 'hide'] = hidden;
+  saveSlides();
+  showSlide(currentSlide);
 }
 
 g('ep-type').addEventListener('change', () => {
