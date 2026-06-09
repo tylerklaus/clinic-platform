@@ -165,11 +165,23 @@ function renderSlideContent(slide, container) {
     s.appendChild(topBar(sc, 'Rule Change', rPill));
     const hd = el('div',`position:absolute;left:${32*sc}px;top:${82*sc}px;right:${32*sc}px;font-size:${32*sc}px;font-weight:800;color:${NAVY};line-height:1.1;`);
     hd.textContent = d.rcHeading || slide.title;
-    const ruleCard = el('div',`position:absolute;left:${32*sc}px;top:${142*sc}px;right:${32*sc}px;bottom:${110*sc}px;background:#fff;border-radius:${8*sc}px;border-top:${4*sc}px solid ${GOLD};overflow:hidden;`);
+    const ruleCard = el('div',`position:absolute;left:${32*sc}px;top:${142*sc}px;right:${32*sc}px;bottom:${110*sc}px;background:#fff;border-radius:${8*sc}px;border-top:${4*sc}px solid ${GOLD};overflow:hidden;display:flex;`);
+    const rcImg = d.rcImage || null;
     const ruleCardHdr = el('div',`padding:${10*sc}px ${16*sc}px ${8*sc}px;font-size:${10*sc}px;font-weight:700;letter-spacing:${1.5*sc}px;text-transform:uppercase;color:${GOLD};`);
     ruleCardHdr.textContent = 'New Rule';
     const ruleCardBody = el('div',`padding:${14*sc}px ${18*sc}px;font-size:${19*sc}px;color:#111;line-height:1.65;white-space:pre-wrap;font-weight:500;`);
     ruleCardBody.textContent = d.rcNew || '';
+    const textCol = el('div',`width:${rcImg ? 480*sc+'px' : '100%'};display:flex;flex-direction:column;`);
+    textCol.append(ruleCardHdr, ruleCardBody);
+    ruleCard.appendChild(textCol);
+    if (rcImg) {
+      const photoCol = el('div',`flex:1;background:#f0f0ee;display:flex;align-items:center;justify-content:center;overflow:hidden;border-left:1px solid #e8e8e8;`);
+      const photo = document.createElement('img');
+      photo.src = rcImg;
+      photo.style.cssText = `width:100%;height:100%;object-fit:contain;`;
+      photoCol.appendChild(photo);
+      ruleCard.appendChild(photoCol);
+    }
     ruleCard.append(ruleCardHdr, ruleCardBody);
     const ratBar = el('div',`position:absolute;left:0;right:0;bottom:0;height:${100*sc}px;background:#fff;border-top:${3*sc}px solid ${GOLD};display:flex;align-items:flex-start;padding:${10*sc}px ${32*sc}px;gap:${6*sc}px;flex-direction:column;`);
     const ratLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;`);

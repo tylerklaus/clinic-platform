@@ -98,6 +98,7 @@ html,body{height:100%;background:#000;color:#fff;font-family:"Segoe UI",system-u
   <button class="tb-btn" id="tb-video-toggle"><i class="ti ti-video"></i> Video</button>
   <button class="tb-btn" id="tb-library"><i class="ti ti-movie"></i> Clips</button>
   <div class="tb-sep"></div>
+  <button class="tb-btn" id="tb-fullscreen" title="Fullscreen (F)"><i class="ti ti-maximize"></i></button>
   <a href="/" class="tb-btn"><i class="ti ti-home"></i></a>
   <div style="margin-left:auto;display:flex;gap:4px;align-items:center;">
     <span class="kbd">Space</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin:0 4px;">play</span>
@@ -306,6 +307,24 @@ document.getElementById("tb-video-toggle").addEventListener("click",function(){s
 document.getElementById("tb-library").addEventListener("click",function(){document.getElementById("video-library").classList.toggle("open");});
 document.getElementById("vl-close").addEventListener("click",function(){document.getElementById("video-library").classList.remove("open");});
 
+// Fullscreen
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(()=>{});
+    document.getElementById("tb-fullscreen").innerHTML = '<i class="ti ti-minimize"></i>';
+  } else {
+    document.exitFullscreen();
+    document.getElementById("tb-fullscreen").innerHTML = '<i class="ti ti-maximize"></i>';
+  }
+}
+document.getElementById("tb-fullscreen").addEventListener("click", toggleFullscreen);
+document.addEventListener("fullscreenchange", function() {
+  const btn = document.getElementById("tb-fullscreen");
+  if (btn) btn.innerHTML = document.fullscreenElement
+    ? '<i class="ti ti-minimize"></i>'
+    : '<i class="ti ti-maximize"></i>';
+});
+
 document.addEventListener("keydown",function(e){
   const tag=document.activeElement.tagName;
   if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT")return;
@@ -322,6 +341,7 @@ document.addEventListener("keydown",function(e){
     const sel=document.getElementById("vc-speed");
     if(video&&sel){const n=parseFloat(sel.value)===1?0.5:1;sel.value=String(n);video.playbackRate=n;}
   }
+  if(e.key==="f"||e.key==="F"){toggleFullscreen();}
 });
 
 init();
