@@ -42,8 +42,14 @@ html,body{height:100%;background:#000;color:#fff;font-family:"Segoe UI",system-u
 .kbd{display:inline-block;font-family:monospace;font-size:10px;padding:1px 5px;border-radius:3px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.45);margin:0 1px}
 
 /* ── TRANSITIONS ── */
-#content-slide { transition: opacity 0.25s ease; }
-#content-slide.dissolving { opacity: 0; pointer-events: none; }
+#slide-frame { isolation: isolate; }
+.xdissolve-overlay {
+  position: absolute; inset: 0; z-index: 10;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+.xdissolve-overlay.fade-out { opacity: 0; }
 
 /* Reveal lines — hidden until stepped to */
 [data-step-reveal="1"] [data-reveal-line] { opacity: 0; transform: translateY(6px); transition: opacity 0.3s ease, transform 0.3s ease; }
@@ -269,19 +275,41 @@ function showSlide(idx){
   document.getElementById("tb-video-toggle").style.display = hasVideo ? "" : "none";
 }
 
-/* ── DISSOLVE helper ──
-   Fades content slide out, calls fn() to swap content, fades back in.
-   skipDissolve=true skips the fade (used for casebook which has its own animation). */
+/* ── CROSS-DISSOLVE helper ──
+   Snapshots the current slide-frame content as an absolutely-positioned overlay,
+   renders new content underneath, then fades the overlay out — true cross-dissolve. */
 function dissolve(fn, skipDissolve) {
-  const cs = document.getElementById("content-slide");
   if (skipDissolve) { fn(); return; }
-  cs.classList.add("dissolving");
-  setTimeout(() => {
-    fn();
-    // Force reflow so transition fires
-    cs.offsetHeight; // eslint-disable-line
-    cs.classList.remove("dissolving");
-  }, 220);
+  const frame = document.getElementById("slide-frame");
+  // Clone current visible content as an overlay
+  const overlay = document.createElement("div");
+  overlay.className = "xdissolve-overlay";
+  // Copy the current inner HTML of slide-frame into the overlay
+  const cs = document.getElementById("content-slide");
+  const vs = document.getElementById("video-slide");
+  if (cs.classList.contains("active")) {
+    const inner = document.getElementById("slide-inner");
+    overlay.innerHTML = inner.innerHTML;
+    overlay.style.cssText = `position:absolute;inset:0;z-index:10;pointer-events:none;opacity:1;transition:opacity 0.3s ease;background:${inner.firstElementChild ? getComputedStyle(inner.firstElementChild).background : '#fff'};`;
+    // Copy the rendered child's full style so background matches
+    if (inner.firstElementChild) {
+      const child = inner.firstElementChild.cloneNode(true);
+      overlay.innerHTML = '';
+      overlay.appendChild(child);
+    }
+  } else {
+    // Coming from video — just a black overlay
+    overlay.style.cssText = "position:absolute;inset:0;z-index:10;pointer-events:none;opacity:1;transition:opacity 0.3s ease;background:#000;";
+  }
+  frame.appendChild(overlay);
+  // Now render new content (invisible under the overlay)
+  fn();
+  // Force reflow then fade overlay out
+  overlay.offsetHeight; // eslint-disable-line
+  overlay.style.opacity = '0';
+  overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+  // Safety cleanup
+  setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 600);
 }
 
 /* ── REVEAL STEP state ── */
