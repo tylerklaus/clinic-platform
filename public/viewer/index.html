@@ -40,6 +40,20 @@ html,body{height:100%;background:#000;color:#fff;font-family:"Segoe UI",system-u
 #tb-slide-title{font-size:13px;color:rgba(255,255,255,0.6);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tb-sep{width:1px;height:28px;background:rgba(255,255,255,0.12);flex-shrink:0}
 .kbd{display:inline-block;font-family:monospace;font-size:10px;padding:1px 5px;border-radius:3px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.45);margin:0 1px}
+
+/* ── TRANSITIONS ── */
+#content-slide { transition: opacity 0.25s ease; }
+#content-slide.dissolving { opacity: 0; pointer-events: none; }
+
+/* Reveal lines — hidden until stepped to */
+[data-step-reveal="1"] [data-reveal-line] { opacity: 0; transform: translateY(6px); transition: opacity 0.3s ease, transform 0.3s ease; }
+[data-step-reveal="1"] [data-reveal-line].revealed { opacity: 1; transform: none; }
+
+/* Casebook phase-1 animation */
+@keyframes cb-slide-left { from { opacity:0; transform:translateX(-28px); } to { opacity:1; transform:none; } }
+@keyframes cb-slide-right { from { opacity:0; transform:translateX(28px); } to { opacity:1; transform:none; } }
+.cb-anim-left  { animation: cb-slide-left  0.38s cubic-bezier(0.22,1,0.36,1) both; }
+.cb-anim-right { animation: cb-slide-right 0.38s cubic-bezier(0.22,1,0.36,1) both; }
 #video-library{position:fixed;top:0;right:-360px;width:340px;bottom:56px;background:#1a1a2e;border-left:1px solid rgba(255,255,255,0.1);transition:right 0.25s;z-index:200;display:flex;flex-direction:column}
 #video-library.open{right:0}
 #vl-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1);background:var(--navy)}
@@ -255,29 +269,111 @@ function showSlide(idx){
   document.getElementById("tb-video-toggle").style.display = hasVideo ? "" : "none";
 }
 
+/* ── DISSOLVE helper ──
+   Fades content slide out, calls fn() to swap content, fades back in.
+   skipDissolve=true skips the fade (used for casebook which has its own animation). */
+function dissolve(fn, skipDissolve) {
+  const cs = document.getElementById("content-slide");
+  if (skipDissolve) { fn(); return; }
+  cs.classList.add("dissolving");
+  setTimeout(() => {
+    fn();
+    // Force reflow so transition fires
+    cs.offsetHeight; // eslint-disable-line
+    cs.classList.remove("dissolving");
+  }, 220);
+}
+
+/* ── REVEAL STEP state ── */
+let revealStep = 0; // how many reveal-lines are currently shown
+
+function getRevealLines() {
+  const s = document.querySelector('#slide-inner [data-step-reveal="1"]');
+  if (!s) return [];
+  return Array.from(s.querySelectorAll('[data-reveal-line]'))
+    .sort((a,b) => parseInt(a.dataset.revealLine)-parseInt(b.dataset.revealLine));
+}
+
+function initRevealLines() {
+  // Called after rendering a step-reveal slide.
+  // All lines start hidden; apply [data-step-reveal] on the inner root.
+  revealStep = 0;
+  const lines = getRevealLines();
+  lines.forEach(l => l.classList.remove('revealed'));
+}
+
+function revealNext() {
+  // Returns true if a line was revealed, false if all done.
+  const lines = getRevealLines();
+  const nextLine = lines.find(l => !l.classList.contains('revealed'));
+  if (!nextLine) return false;
+  // Reveal all lines with the same index at once
+  const idx = nextLine.dataset.revealLine;
+  lines.filter(l => l.dataset.revealLine === idx && !l.classList.contains('revealed'))
+       .forEach(l => l.classList.add('revealed'));
+  revealStep++;
+  return true;
+}
+
+function allRevealed() {
+  const lines = getRevealLines();
+  return lines.length === 0 || lines.every(l => l.classList.contains('revealed'));
+}
+
+/* ── CASEBOOK animation ── */
+function animateCasebookReveal() {
+  const inner = document.getElementById("slide-inner");
+  const leftEl = inner.querySelector('[data-cb-left]');
+  const rightEl = inner.querySelector('[data-cb-right]');
+  if (leftEl) { leftEl.classList.remove('cb-anim-left'); void leftEl.offsetWidth; leftEl.classList.add('cb-anim-left'); }
+  if (rightEl) { rightEl.classList.remove('cb-anim-right'); void rightEl.offsetWidth; rightEl.classList.add('cb-anim-right'); }
+}
+
+function renderContentSlide(slide, animate) {
+  const inner = document.getElementById("slide-inner");
+  const f = document.getElementById("slide-frame");
+  inner.style.width = f.style.width;
+  inner.style.height = f.style.height;
+  renderSlideContent(slide, inner);
+  if (slide.data && slide.data.stepReveal) initRevealLines();
+  if (animate) animateCasebookReveal();
+}
+
 function setView(wantVideo){
   const slide=slides[currentSlide];
   if(!slide||slide.type!=="video")wantVideo=false;
   showingVideo=wantVideo;
-  document.getElementById("video-slide").classList.toggle("active",wantVideo);
-  document.getElementById("content-slide").classList.toggle("active",!wantVideo);
-  // Auto-load attached clip if present
-  if(wantVideo&&slide&&slide.data&&slide.data.vidClipUrl&&video.src!==window.location.origin+slide.data.vidClipUrl){
-    document.getElementById("drop-overlay").style.display="none";
-    video.src=slide.data.vidClipUrl;
-  }
-  if(!wantVideo&&slide){
-    const inner=document.getElementById("slide-inner");
-    const f=document.getElementById("slide-frame");
-    inner.style.width=f.style.width;
-    inner.style.height=f.style.height;
-    renderSlideContent(slide,inner);
+  const vs = document.getElementById("video-slide");
+  const cs = document.getElementById("content-slide");
+  if(wantVideo){
+    dissolve(()=>{ vs.classList.add("active"); cs.classList.remove("active"); });
+    if(slide&&slide.data&&slide.data.vidClipUrl&&video.src!==window.location.origin+slide.data.vidClipUrl){
+      document.getElementById("drop-overlay").style.display="none";
+      video.src=slide.data.vidClipUrl;
+    }
+  } else {
+    const isCasebook = slide && slide.type==="casebook" && cbPhase===1;
+    if (isCasebook) {
+      // Casebook: no dissolve, render immediately then animate
+      vs.classList.remove("active"); cs.classList.add("active");
+      renderContentSlide(slide, true);
+    } else {
+      dissolve(()=>{
+        vs.classList.remove("active"); cs.classList.add("active");
+        renderContentSlide(slide, false);
+      });
+    }
   }
 }
 
 function advanceNext(){
   const slide=slides[currentSlide];
   if(!slide)return;
+  // If step-reveal is active and there are unrevealed lines, reveal next one
+  if(slide.data&&slide.data.stepReveal&&slide.type!=="casebook"&&!allRevealed()){
+    revealNext();
+    return;
+  }
   const order=(slide.data&&slide.data.vidOrder)||"video";
   const showText=slide.data?slide.data.vidShowText!==false:true;
   if(slide.type==="video"){
@@ -292,7 +388,6 @@ function advanceNext(){
     const nextOrder=(s&&s.data&&s.data.vidOrder)||"video";
     if(s&&s.type==="video"){setView(nextOrder==="video");}
     else{setView(false);}
-    // Preload 2 clips ahead of new position
     preloadAhead(currentSlide+1, 2);
   }
 }
@@ -301,9 +396,17 @@ document.getElementById("tb-next").addEventListener("click",advanceNext);
 document.getElementById("tb-prev").addEventListener("click",function(){
   const slide=slides[currentSlide];
   if(!slide)return;
+  // If step-reveal is active and some lines are shown, hide all and reset
+  if(slide.data&&slide.data.stepReveal&&slide.type!=="casebook"&&revealStep>0){
+    initRevealLines(); return;
+  }
   if(slide.type==="video"&&showingVideo){setView(false);return;}
-  if(slide.type==="casebook"&&cbPhase===1){cbPhase=0;setView(false);return;}
-  if(currentSlide>0){currentSlide--;cbPhase=0;showSlide(currentSlide);setView(slides[currentSlide].type==="video");}
+  if(slide.type==="casebook"&&cbPhase===1){cbPhase=0;dissolve(()=>setView(false));return;}
+  if(currentSlide>0){
+    currentSlide--;cbPhase=0;
+    showSlide(currentSlide);
+    dissolve(()=>setView(slides[currentSlide].type==="video"));
+  }
 });
 document.getElementById("tb-video-toggle").addEventListener("click",function(){setView(!showingVideo);});
 document.getElementById("tb-library").addEventListener("click",function(){document.getElementById("video-library").classList.toggle("open");});
