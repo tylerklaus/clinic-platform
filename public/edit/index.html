@@ -1009,7 +1009,7 @@ function renderSlideContent(slide, container) {
     qEl.dataset.field='discQ'; qEl.dataset.placeholder='Click to add your discussion question...'; const _dqVal=d.discQ||''; if(_dqVal){qEl.textContent=_dqVal;}else{qEl.textContent='Click to add your discussion question...';qEl.dataset.isEmpty='1';qEl.style.opacity='0.4';qEl.style.fontStyle='italic';}
     // Bullet points (discCtx, one per line)
     const _bullets=(d.discCtx||'').split('\n').filter(l=>l.trim());
-    const bulletArea=el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;bottom:${28*sc}px;top:${130*sc}px;display:flex;flex-direction:column;justify-content:flex-end;gap:${10*sc}px;`);
+    const bulletArea=el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;top:${148*sc}px;bottom:${28*sc}px;display:flex;flex-direction:column;justify-content:flex-start;gap:${10*sc}px;`);
     bulletArea.dataset.field='discCtx'; bulletArea.dataset.placeholder='Add discussion points (one per line)...';
     if(_bullets.length){
       _bullets.forEach(b=>{

@@ -312,7 +312,7 @@ function renderSlideContent(slide, container) {
     qEl.textContent=d.discQ||'Discussion question goes here.';
     // Bullet points from discCtx (one per line) — each is a reveal line
     const bullets=(d.discCtx||'').split('\n').filter(l=>l.trim());
-    const bulletArea=editable(el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;bottom:${28*sc}px;top:${130*sc}px;display:flex;flex-direction:column;justify-content:flex-end;gap:${10*sc}px;`),'discCtx','Add discussion points (one per line)...');
+    const bulletArea=editable(el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;top:${148*sc}px;bottom:${28*sc}px;display:flex;flex-direction:column;justify-content:flex-start;gap:${10*sc}px;`),'discCtx','Add discussion points (one per line)...');
     if(bullets.length){
       bullets.forEach((b,i)=>{
         const row=el('div',`display:flex;align-items:flex-start;gap:${12*sc}px;`);
