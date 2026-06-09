@@ -612,8 +612,11 @@ html, body {
     <!-- CASEBOOK fields -->
     <div class="ep-group" id="epg-casebook">
       <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
-      <input type="hidden" id="ep-cb-title"><input type="hidden" id="ep-cb-cite">
-      <input type="hidden" id="ep-cb-sit"><input type="hidden" id="ep-cb-ruling"><input type="hidden" id="ep-cb-comment"><input type="hidden" id="ep-cb-principle">
+      <input type="hidden" id="ep-cb-title"><input type="hidden" id="ep-cb-sit"><input type="hidden" id="ep-cb-ruling"><input type="hidden" id="ep-cb-comment"><input type="hidden" id="ep-cb-principle">
+      <div class="ep-field">
+        <label>Citation <span style="opacity:.5;font-weight:400;">(e.g. CB 6.4.3 — shown as pill in top bar)</span></label>
+        <input type="text" id="ep-cb-cite" placeholder="e.g. CB 6.4.3">
+      </div>
     </div>
 
     <!-- STATE TITLE fields -->
@@ -1007,25 +1010,48 @@ function renderSlideContent(slide, container) {
     // Question
     const qEl=el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;top:${72*sc}px;font-size:${32*sc}px;font-weight:800;color:#fff;line-height:1.18;`);
     qEl.dataset.field='discQ'; qEl.dataset.placeholder='Click to add your discussion question...'; const _dqVal=d.discQ||''; if(_dqVal){qEl.textContent=_dqVal;}else{qEl.textContent='Click to add your discussion question...';qEl.dataset.isEmpty='1';qEl.style.opacity='0.4';qEl.style.fontStyle='italic';}
-    // Bullet points (discCtx, one per line)
+    // Bullet points (discCtx, one per line) — click to edit as plain text, re-renders as bullets on blur
     const _bullets=(d.discCtx||'').split('\n').filter(l=>l.trim());
-    const bulletArea=el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;top:${148*sc}px;bottom:${28*sc}px;display:flex;flex-direction:column;justify-content:flex-start;gap:${10*sc}px;`);
-    bulletArea.dataset.field='discCtx'; bulletArea.dataset.placeholder='Add discussion points (one per line)...';
-    if(_bullets.length){
-      _bullets.forEach(b=>{
-        const row=el('div',`display:flex;align-items:flex-start;gap:${12*sc}px;`);
-        const dot=el('div',`width:${8*sc}px;height:${8*sc}px;border-radius:50%;background:${GOLD};flex-shrink:0;margin-top:${7*sc}px;`);
-        const txt=el('div',`font-size:${16*sc}px;color:rgba(255,255,255,0.6);line-height:1.5;`);
-        txt.textContent=b;
-        row.append(dot,txt);
-        bulletArea.appendChild(row);
-      });
-    } else {
-      const ph=el('div',`font-size:${15*sc}px;color:rgba(255,255,255,0.2);font-style:italic;`);
-      ph.dataset.isEmpty='1';
-      ph.textContent='Add discussion points (one per line)...';
-      bulletArea.appendChild(ph);
-    }
+    const bulletArea=el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;top:${148*sc}px;bottom:${28*sc}px;display:flex;flex-direction:column;justify-content:flex-start;gap:${10*sc}px;cursor:text;`);
+    bulletArea.dataset.field='discCtx';
+    const _renderBullets = (area, bullets) => {
+      area.innerHTML = '';
+      area.style.cssText = `position:absolute;left:${32*sc}px;right:${80*sc}px;top:${148*sc}px;bottom:${28*sc}px;display:flex;flex-direction:column;justify-content:flex-start;gap:${10*sc}px;cursor:text;`;
+      if(bullets.length){
+        bullets.forEach(b=>{
+          const row=el('div',`display:flex;align-items:flex-start;gap:${12*sc}px;`);
+          const dot=el('div',`width:${8*sc}px;height:${8*sc}px;border-radius:50%;background:${GOLD};flex-shrink:0;margin-top:${7*sc}px;`);
+          const txt=el('div',`font-size:${16*sc}px;color:rgba(255,255,255,0.6);line-height:1.5;`);
+          txt.textContent=b; row.append(dot,txt); area.appendChild(row);
+        });
+      } else {
+        const ph=el('div',`font-size:${15*sc}px;color:rgba(255,255,255,0.2);font-style:italic;`);
+        ph.textContent='Click to add discussion points (one per line)...'; area.appendChild(ph);
+      }
+    };
+    _renderBullets(bulletArea, _bullets);
+    bulletArea.addEventListener('click', function() {
+      const raw = (slides[currentSlide].data && slides[currentSlide].data.discCtx) || '';
+      this.innerHTML = '';
+      this.style.cssText = `position:absolute;left:${32*sc}px;right:${80*sc}px;top:${148*sc}px;bottom:${28*sc}px;font-size:${16*sc}px;color:rgba(255,255,255,0.75);line-height:1.6;white-space:pre-wrap;word-break:break-word;outline:2px solid rgba(242,101,34,0.9);background:rgba(242,101,34,0.08);border-radius:3px;padding:4px;`;
+      this.contentEditable = 'true';
+      this.spellcheck = false;
+      this.textContent = raw;
+      this.focus();
+      const range = document.createRange(); range.selectNodeContents(this);
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    });
+    bulletArea.addEventListener('blur', function() {
+      this.contentEditable = 'false';
+      const raw = this.innerText.trim();
+      writeField(slides[currentSlide], 'discCtx', raw);
+      saveSlides();
+      const newBullets = raw.split('\n').filter(l=>l.trim());
+      _renderBullets(this, newBullets);
+    });
+    bulletArea.addEventListener('keydown', function(e) {
+      if(e.key === 'Escape') { this.blur(); }
+    });
     const qm=el('div',`position:absolute;right:${28*sc}px;top:${10*sc}px;font-size:${220*sc}px;font-weight:900;color:rgba(242,101,34,0.12);line-height:1;pointer-events:none;`);
     qm.textContent='?';
     s.append(dRow,qEl,bulletArea,qm);
@@ -1570,6 +1596,8 @@ function populateEditor() {
     g('ep-em-2hide').checked = !!d.em2hide;
     g('ep-em-3hide').checked = !!d.em3hide;
     g('ep-em-4hide').checked = !!d.em4hide;
+  } else if (s.type === 'casebook') {
+    g('ep-cb-cite').value = d.cbCite || '';
   }
   // Sync step-reveal checkbox for emphasis / mechanics / discussion
   const revealTypes = { emphasis: 'ep-step-reveal-em', mechanics: 'ep-step-reveal-mech', discussion: 'ep-step-reveal-disc' };
@@ -1738,6 +1766,8 @@ g('ep-save').addEventListener('click', () => {
     data.embHtml = g('ep-emb-html').value;
   } else if (type === 'discussion') {
     data.discTime = g('ep-disc-time').value;
+  } else if (type === 'casebook') {
+    data.cbCite = g('ep-cb-cite').value;
   }
 
   const title = slide.title || type;
