@@ -87,7 +87,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET || randomBytes(32).toString('hex'),
   store: new FileStore({ path: '/opt/clinic-platform/data/sessions', ttl: 86400, retries: 0 }),
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true,
   cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 86400000 * 7 }
 }));
 
@@ -230,7 +230,10 @@ app.post('/api/presentations/:slug/verify', (req, res) => {
   // Store unlocked presentations in session
   if (!req.session.unlocked) req.session.unlocked = [];
   if (!req.session.unlocked.includes(req.params.slug)) req.session.unlocked.push(req.params.slug);
-  res.json({ ok: true, redirect: `/p/${req.params.slug}` });
+  req.session.save(err => {
+    if (err) return res.status(500).json({ error: 'Session error' });
+    res.json({ ok: true, redirect: `/p/${req.params.slug}` });
+  });
 });
 
 // Get slides for a presentation
