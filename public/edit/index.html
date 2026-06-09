@@ -1597,6 +1597,7 @@ function populateEditor() {
   showGroups(s.type);
 
   if (s.type === 'title') {
+    titleLogoSrc = (s.data && s.data.titleLogo) || null;
     updateLogoUI();
   } else if (s.type === 'video') {
     g('ep-vid-video-first').checked = d.vidOrder !== 'situation';
@@ -1683,7 +1684,13 @@ g('ep-logo-input').addEventListener('change', e => {
   const reader = new FileReader();
   reader.onload = ev => {
     titleLogoSrc = ev.target.result;
-    
+    // Persist to slide data so viewer can load it
+    const slide = slides[currentSlide];
+    if (slide) {
+      if (!slide.data) slide.data = {};
+      slide.data.titleLogo = titleLogoSrc;
+      saveSlides();
+    }
     updateLogoUI();
     if (slides[currentSlide].type === 'title') showSlide(currentSlide);
   };
@@ -1692,7 +1699,9 @@ g('ep-logo-input').addEventListener('change', e => {
 
 g('ep-logo-clear').addEventListener('click', () => {
   titleLogoSrc = null;
-  
+  const slide = slides[currentSlide];
+  if (slide && slide.data) delete slide.data.titleLogo;
+  saveSlides();
   g('ep-logo-input').value = '';
   updateLogoUI();
   if (slides[currentSlide].type === 'title') showSlide(currentSlide);

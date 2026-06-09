@@ -98,6 +98,14 @@ async function init(){
         <div class="card-meta"><span>Updated ${d}</span>${canEdit?`<a href="/edit/${p.slug}" onclick="event.stopPropagation()" style="color:var(--gold);text-decoration:none;margin-left:auto;">Edit ›</a>`:''}</div>
       </div></div>`;
   }).join('');
+  // If redirected from viewer with ?pw=slug, auto-open the password modal
+  const pwSlug=new URLSearchParams(location.search).get('pw');
+  if(pwSlug){
+    const match=pres.find(p=>p.slug===pwSlug);
+    if(match&&match.has_password&&!(me.unlocked&&me.unlocked.includes(pwSlug))){
+      open_p(pwSlug,true,match.title);
+    }
+  }
 }
 function open_p(slug,hasPw,title){
   if(!hasPw||(me.unlocked&&me.unlocked.includes(slug))){window.location.href='/p/'+slug;return;}
@@ -119,10 +127,8 @@ async function submitPw(){
 function closeModal(){document.getElementById('overlay').classList.remove('open');pendingSlug=null;}
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
 init();
-
-// Expose to global scope
-window.open_p = open_p;
-window.submitPw = submitPw;
-window.closeModal = closeModal;
+window.open_p=open_p;
+window.submitPw=submitPw;
+window.closeModal=closeModal;
 </script>
 </body></html>

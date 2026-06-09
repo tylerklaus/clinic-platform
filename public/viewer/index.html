@@ -162,6 +162,11 @@ async function init(){
     fetch("/api/presentations/"+slug+"/slides"),
     fetch("/api/presentations/"+slug)
   ]);
+  if(sr.status===401){
+    // Password required but not unlocked — redirect to homepage to enter password
+    window.location.href='/?pw='+encodeURIComponent(slug);
+    return;
+  }
   if(!sr.ok){
     document.body.innerHTML='<div style="color:#fff;padding:40px;font-size:20px;">Presentation not found</div>';
     return;
@@ -374,6 +379,8 @@ function animateCasebookReveal() {
 }
 
 function renderContentSlide(slide, animate) {
+  // Populate globals that renderer.js reads
+  if (slide.type === 'title') titleLogoSrc = (slide.data && slide.data.titleLogo) || null;
   const inner = document.getElementById("slide-inner");
   const f = document.getElementById("slide-frame");
   inner.style.width = f.style.width;

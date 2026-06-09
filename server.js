@@ -237,6 +237,14 @@ app.post('/api/presentations/:slug/verify', (req, res) => {
 app.get('/api/presentations/:slug/slides', (req, res) => {
   const p = db.prepare('SELECT * FROM presentations WHERE slug=?').get(req.params.slug);
   if (!p) return res.status(404).json({ error: 'Not found' });
+  // Enforce password: admins/creators bypass; others must have unlocked via session
+  const isPrivileged = ['admin','creator'].includes(req.session?.user?.role);
+  if (p.password_hash && !isPrivileged) {
+    const unlocked = req.session?.unlocked || [];
+    if (!unlocked.includes(req.params.slug)) {
+      return res.status(401).json({ error: 'Password required' });
+    }
+  }
   const slides = db.prepare('SELECT * FROM slides WHERE presentation_id=? ORDER BY position').all(p.id);
   res.json(slides.map(s => ({ ...s, data: JSON.parse(s.data || '{}') })));
 });
