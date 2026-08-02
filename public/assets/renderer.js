@@ -433,6 +433,15 @@ function renderSlideContent(slide, container) {
     const stLbl2=editable(el('div',`position:absolute;left:${32*sc}px;bottom:${56*sc}px;right:${400*sc}px;font-size:${18*sc}px;color:${GOLD};font-weight:600;line-height:1.4;`),'stLabel','Stat label');
     stLbl2.textContent=d.stLabel||'';
     s.append(eyeL,bigN,stLbl2,rPanel);
+
+  // ── VOLLEYBALL ROTATION TRAINER ─────────────────────────────────────────
+  } else if (slide.type === 'volleyball') {
+    s.style.background = '#0f172a';
+    const vbtRoot = el('div','position:absolute;inset:0;');
+    s.appendChild(vbtRoot);
+    // Presentation viewer: drags/edits update the live view only — never persisted,
+    // so the slide always resets to its saved layout the next time it's shown.
+    if (window.VolleyballTrainer) window.VolleyballTrainer.mount(vbtRoot, d, sc, { onChange: null });
   }
 
   container.appendChild(s);

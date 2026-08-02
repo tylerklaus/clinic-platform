@@ -422,6 +422,9 @@ app.use('/assets', express.static(join(__dirname, 'public', 'assets')));
 // Landing page
 app.get('/', (req, res) => res.sendFile(join(__dirname, 'public', 'index.html')));
 
+// Standalone volleyball rotation trainer (not tied to a presentation)
+app.get('/rotation', (req, res) => res.sendFile(join(__dirname, 'public', 'rotation', 'index.html')));
+
 // Viewer
 app.get('/p/:slug', (req, res) => res.sendFile(join(__dirname, 'public', 'viewer', 'index.html')));
 
