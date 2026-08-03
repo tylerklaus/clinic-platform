@@ -257,15 +257,14 @@ async function loadClips(){
   list.innerHTML="";
   vids.forEach(function(v){
     const mb=(v.size/1024/1024).toFixed(0);
-    const url=v.scope==="shared"?"/videos/shared/"+v.filename:"/videos/p/"+slug+"/"+v.filename;
     const d=document.createElement("div");
     d.className="vl-item";
     d.innerHTML='<div class="vl-icon"><i class="ti ti-movie"></i></div>'+
       '<div style="flex:1;min-width:0">'+
       '<div class="vl-name">'+v.original_name+'</div>'+
-      '<div class="vl-meta">'+mb+'MB<span class="vl-scope '+v.scope+'">'+v.scope+'</span></div>'+
+      '<div class="vl-meta">'+mb+'MB<span class="vl-scope '+v.scope+'">'+(v.provider==="bunny"?"bunny":v.scope)+'</span></div>'+
       '</div>';
-    d.addEventListener("click",function(){loadUrl(url,d);});
+    d.addEventListener("click",function(){loadUrl(v.url,d);});
     list.appendChild(d);
   });
 }
@@ -439,7 +438,7 @@ function setView(wantVideo){
   const cs = document.getElementById("content-slide");
   if(wantVideo){
     dissolve(()=>{ vs.classList.add("active"); cs.classList.remove("active"); });
-    if(slide&&slide.data&&slide.data.vidClipUrl&&video.src!==window.location.origin+slide.data.vidClipUrl){
+    if(slide&&slide.data&&slide.data.vidClipUrl&&video.src!==new URL(slide.data.vidClipUrl,window.location.href).href){
       document.getElementById("drop-overlay").style.display="none";
       video.src=slide.data.vidClipUrl;
     }

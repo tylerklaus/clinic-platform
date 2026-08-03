@@ -15,6 +15,20 @@
     LB: { x: 5, y: 20 }, MB: { x: 15, y: 20 }, RB: { x: 25, y: 20 }
   };
   const ZONE_NAMES = { RF: 'RIGHT FRONT', MF: 'MIDDLE FRONT', LF: 'LEFT FRONT', LB: 'LEFT BACK', MB: 'MIDDLE BACK', RB: 'RIGHT BACK' };
+  // Which zones each zone is "bound by" for the overlap rule — the adjacent left/right
+  // (same row) and front/back (same column) neighbors that must stay on the correct
+  // side of this player. Matches the pairs enforced in checkOverlaps().
+  const ADJACENCY = {
+    LF: ['MF', 'LB'], MF: ['LF', 'RF', 'MB'], RF: ['MF', 'RB'],
+    LB: ['MB', 'LF'], MB: ['LB', 'RB', 'MF'], RB: ['MB', 'RF']
+  };
+  // Canonical overlap rules — same pairs checkOverlaps() enforces. Shared here so the
+  // live bound-mode line coloring and the "Check Overlaps" button never disagree.
+  const RULES = [
+    { a: 'LF', b: 'MF', type: 'left-of' }, { a: 'MF', b: 'RF', type: 'left-of' },
+    { a: 'LB', b: 'MB', type: 'left-of' }, { a: 'MB', b: 'RB', type: 'left-of' },
+    { a: 'LF', b: 'LB', type: 'front-of' }, { a: 'MF', b: 'MB', type: 'front-of' }, { a: 'RF', b: 'RB', type: 'front-of' }
+  ];
   const COURT_SIZES = { compact: 8, standard: 12, large: 15, xlarge: 18 };
   const COURT_W = 30, COURT_L = 30;
   const NS = 'http://www.w3.org/2000/svg';
@@ -216,13 +230,17 @@
       const legend = div('vbt-legend');
       [
         ['#2563eb', 'Front row'], ['#16a34a', 'Back row'], ['#f59e0b', 'Libero'],
-        ['#9333ea', 'Setter (badge)'], ['#dc2626', 'Overlap violation']
+        ['#9333ea', 'Setter (badge)'], ['#dc2626', 'Overlap violation'],
+        ['#eab308', 'Double-clicked player'], ['#06b6d4', 'Bound-by neighbor']
       ].forEach(([color, text]) => {
         const row = div(); const dot = div('vbt-dot'); dot.style.background = color;
         const txt = document.createElement('span'); txt.textContent = text;
         row.append(dot, txt); legend.appendChild(row);
       });
       controls.appendChild(legend);
+      const boundHint = div('vbt-hint', 'margin-top:6px;');
+      boundHint.textContent = "Double-click any player to see who they're bound by. Double-click again, or double-click empty court, to clear.";
+      controls.appendChild(boundHint);
 
       // ── Court column ────────────────────────────────────────────
       const courtCard = div('vbt-court-card');
@@ -241,6 +259,9 @@
       container.appendChild(scaleWrap);
 
       let violationLayer = null;
+      let boundLayer = null; // holds the dashed "bound by" lines drawn from the inspected player
+      let playerGroups = {}; // lineup num -> <g> element, for live updates during drag
+      let boundSelection = null; // lineup slot (1-6) currently inspected via double-click, or null
 
       // ---- court drawing ----
       function drawCourt() {
@@ -280,6 +301,9 @@
 
         violationLayer = svgEl('g', {});
         svg.appendChild(violationLayer);
+
+        boundLayer = svgEl('g', {});
+        svg.appendChild(boundLayer);
 
         for (const z in ZONE_COORDS) {
           const c = ZONE_COORDS[z];
@@ -341,6 +365,106 @@
         return isFrontRow(n) ? '#2563eb' : '#16a34a';
       }
 
+      // ---- bound-by inspection mode (double-click a player) ----
+      function playerNumByZone(zone) {
+        for (let n = 1; n <= 6; n++) { if (state.players[n].zone === zone) return n; }
+        return null;
+      }
+
+      // True if the two given zones are still in legal order relative to each other,
+      // based on the players currently occupying them.
+      function pairLegal(zoneX, zoneY) {
+        const rule = RULES.find(r => (r.a === zoneX && r.b === zoneY) || (r.a === zoneY && r.b === zoneX));
+        if (!rule) return true;
+        const numA = playerNumByZone(rule.a), numB = playerNumByZone(rule.b);
+        if (numA === null || numB === null) return true;
+        const pa = state.players[numA], pb = state.players[numB];
+        return rule.type === 'left-of' ? (pa.x < pb.x) : (pa.y < pb.y);
+      }
+
+      // Ring styling for a given lineup number while bound mode is active — null if this
+      // player isn't the selected player or one of their bound-by neighbors right now.
+      function ringColorFor(num) {
+        if (boundSelection === null || !state.players[boundSelection]) return null;
+        const selZone = state.players[boundSelection].zone;
+        const isSelected = String(boundSelection) === String(num);
+        const neighborZones = ADJACENCY[selZone] || [];
+        const isNeighbor = !isSelected && neighborZones.includes(state.players[num].zone);
+        if (!isSelected && !isNeighbor) return null;
+        const violated = isSelected
+          ? neighborZones.some(nz => !pairLegal(selZone, nz))
+          : !pairLegal(selZone, state.players[num].zone);
+        return {
+          stroke: violated ? '#dc2626' : (isSelected ? '#eab308' : '#06b6d4'),
+          strokeWidth: (isSelected || violated) ? 3.5 : 3,
+          dash: isSelected ? 'none' : (violated ? 'none' : '5 4')
+        };
+      }
+
+      // Updates just one player's bound-ring in place (used during drag, so we don't
+      // have to rebuild every token on every pointer move).
+      function refreshBoundRing(num) {
+        const g = playerGroups[num];
+        if (!g) return;
+        const existing = g.querySelector('.vbt-bound-ring');
+        const spec = ringColorFor(num);
+        if (!spec) { if (existing) existing.remove(); return; }
+        if (existing) {
+          existing.setAttribute('stroke', spec.stroke);
+          existing.setAttribute('stroke-width', spec.strokeWidth);
+          existing.setAttribute('stroke-dasharray', spec.dash);
+        } else {
+          const ring = svgEl('circle', {
+            cx: 0, cy: -10, r: 30, fill: 'none', class: 'vbt-bound-ring',
+            stroke: spec.stroke, 'stroke-width': spec.strokeWidth, 'stroke-dasharray': spec.dash, opacity: 0.9
+          });
+          g.insertBefore(ring, g.firstChild);
+        }
+      }
+
+      // Draws dashed lines from the selected player to each player they're "bound by".
+      // Lives in its own layer beneath the player tokens so the tokens stay on top.
+      function drawBoundHighlight() {
+        if (!boundLayer) return;
+        boundLayer.innerHTML = '';
+        if (boundSelection === null || !state.players[boundSelection]) return;
+        const selZone = state.players[boundSelection].zone;
+        const selP = ftToPx(state.players[boundSelection].x, state.players[boundSelection].y);
+        const neighborZones = ADJACENCY[selZone] || [];
+        for (let n = 1; n <= 6; n++) {
+          if (String(n) === String(boundSelection)) continue;
+          if (!neighborZones.includes(state.players[n].zone)) continue;
+          const p = ftToPx(state.players[n].x, state.players[n].y);
+          const legal = pairLegal(selZone, state.players[n].zone);
+          boundLayer.appendChild(svgEl('line', {
+            x1: selP.x, y1: selP.y, x2: p.x, y2: p.y,
+            stroke: legal ? '#06b6d4' : '#dc2626',
+            'stroke-width': legal ? 2.2 : 3,
+            'stroke-dasharray': legal ? '6 4' : 'none',
+            opacity: legal ? 0.85 : 0.95
+          }));
+        }
+      }
+
+      // Updates the status box with who the inspected player is bound by, while bound
+      // mode is active.
+      function updateBoundStatus() {
+        if (boundSelection === null || !state.players[boundSelection]) return;
+        const zone = state.players[boundSelection].zone;
+        const neighborZones = ADJACENCY[zone] || [];
+        const names = [];
+        let anyViolation = false;
+        for (let n = 1; n <= 6; n++) {
+          if (!neighborZones.includes(state.players[n].zone)) continue;
+          const legal = pairLegal(zone, state.players[n].zone);
+          if (!legal) anyViolation = true;
+          names.push(`Player ${state.jerseys[n]} (${ZONE_NAMES[state.players[n].zone]})${legal ? '' : ' ⚠ ILLEGAL'}`);
+        }
+        const tail = 'Double-click them again, or double-click the court, to clear.';
+        const msg = `Player ${state.jerseys[boundSelection]} (${ZONE_NAMES[zone]}) is bound by: ${names.join(', ')}. ${tail}`;
+        setStatus(anyViolation ? 'bad' : 'idle', anyViolation ? `✗ ${msg}` : msg);
+      }
+
       const HEAD_R = 7, BODY_W = 26, BODY_H = 21;
 
       function buildPlayerToken(n) {
@@ -351,6 +475,16 @@
         const SHOULDER_Y = -BODY_H / 2;
 
         const g = svgEl('g', { class: 'vbt-player', 'data-num': n, transform: `translate(${p.x},${p.y})` });
+
+        // Bound-by highlight ring: gold for the double-clicked player, cyan for the
+        // neighbors they're bound by. Turns red the instant a bound pair goes illegal.
+        const ringSpec = ringColorFor(n);
+        if (ringSpec) {
+          g.appendChild(svgEl('circle', {
+            cx: 0, cy: -10, r: 30, fill: 'none', class: 'vbt-bound-ring',
+            stroke: ringSpec.stroke, 'stroke-width': ringSpec.strokeWidth, 'stroke-dasharray': ringSpec.dash, opacity: 0.9
+          }));
+        }
 
         g.appendChild(svgEl('ellipse', { cx: 0, cy: BODY_H / 2 + 6, rx: 13, ry: 3.5, class: 'vbt-player-shadow' }));
         g.appendChild(svgEl('rect', { x: -BODY_W / 2 - 4, y: SHOULDER_Y + 2, width: 5, height: 14, rx: 2.5, fill }));
@@ -377,15 +511,22 @@
           g.appendChild(bt);
         }
 
-        attachDrag(g, n);
         return g;
       }
 
       function render() {
         svg.querySelectorAll('.vbt-player').forEach(n => n.remove());
         if (violationLayer) violationLayer.innerHTML = '';
-        for (let n = 1; n <= 6; n++) svg.appendChild(buildPlayerToken(n));
+        drawBoundHighlight();
+        playerGroups = {};
+        for (let n = 1; n <= 6; n++) {
+          const g = buildPlayerToken(n);
+          svg.appendChild(g);
+          attachDrag(g, n);
+          playerGroups[n] = g;
+        }
         renderLineupPanel();
+        updateBoundStatus();
       }
 
       function renderLineupPanel() {
@@ -484,8 +625,25 @@
           const p = ftToPx(x, y);
           g.setAttribute('transform', `translate(${p.x},${p.y})`);
           renderLineupPanel();
-          setStatus('idle', 'Positions changed — click "Check Overlaps" to validate.');
           if (violationLayer) violationLayer.innerHTML = '';
+
+          if (boundSelection !== null && state.players[boundSelection]) {
+            // Bound mode: live red feedback the instant a bound pair crosses illegal —
+            // no need to click Check Overlaps. Outside bound mode this never runs.
+            drawBoundHighlight();
+            const selZone = state.players[boundSelection].zone;
+            const neighborZones = ADJACENCY[selZone] || [];
+            if (String(num) === String(boundSelection)) {
+              refreshBoundRing(num);
+              for (let m = 1; m <= 6; m++) { if (neighborZones.includes(state.players[m].zone)) refreshBoundRing(m); }
+            } else if (neighborZones.includes(state.players[num].zone)) {
+              refreshBoundRing(num);
+              refreshBoundRing(boundSelection);
+            }
+            updateBoundStatus();
+          } else {
+            setStatus('idle', 'Positions changed — click "Check Overlaps" to validate.');
+          }
         });
         function end(evt) {
           if (!dragging) return;
@@ -495,6 +653,11 @@
         }
         g.addEventListener('pointerup', end);
         g.addEventListener('pointercancel', end);
+        g.addEventListener('dblclick', (evt) => {
+          evt.stopPropagation(); // don't let it bubble to the court's "clear selection" handler
+          boundSelection = (String(boundSelection) === String(num)) ? null : num;
+          render();
+        });
       }
 
       // ---- overlap checking ----
@@ -557,6 +720,13 @@
         state.lineupHidden = !state.lineupHidden;
         hideBtn.textContent = state.lineupHidden ? 'Show Lineup' : 'Hide Lineup';
         renderLineupPanel();
+      });
+
+      // Double-clicking empty court (not a player) clears any bound-by highlight.
+      // Player tokens call stopPropagation() so this only fires when the double-click
+      // didn't land on a player.
+      svg.addEventListener('dblclick', () => {
+        if (boundSelection !== null) { boundSelection = null; render(); }
       });
 
       // ---- initial paint ----

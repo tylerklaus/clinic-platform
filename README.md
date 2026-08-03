@@ -112,7 +112,7 @@ sqlite3 /opt/clinic-platform/data/clinic.db \
   "UPDATE users SET role='admin' WHERE email='your@email.com';"
 ```
 
-### 8. NFS videos (when ready)
+### 8. NFS videos (legacy, local fallback only)
 
 ```bash
 mkdir -p /mnt/clinic-videos
@@ -121,6 +121,24 @@ mount -a
 # Update VIDEO_DIR in .env then:
 systemctl restart clinic-platform
 ```
+
+### 9. Bunny.net Stream (primary video source)
+
+Videos are served from a Bunny Stream library instead of the UNAS Pro — local NAS playback was too slow off-site even with the look-ahead cache. Bunny's CDN handles delivery instead.
+
+1. In the Bunny dashboard, enable **MP4 Fallback** on your Stream library *before* uploading clips — Bunny only generates the fallback MP4 for videos uploaded after that setting is turned on. If you upload first and enable it after, you'll need to re-upload those clips.
+2. Upload your clips at `dash.bunny.net` as usual.
+3. Fill in `.env` on the LXC:
+   ```
+   BUNNY_LIBRARY_ID=...      # Stream -> your library -> API
+   BUNNY_API_KEY=...         # same page
+   BUNNY_PULL_ZONE=...       # Stream -> your library -> Pull Zone (hostname only)
+   ```
+   then `systemctl restart clinic-platform`.
+4. In `/admin` -> Shared Videos, click **Sync from Bunny**. This pulls the video list from your library, verifies each one actually has a working MP4 fallback URL (probing resolutions from 1080p down to 240p), and adds/updates/removes rows accordingly. Anything without a usable MP4 URL is reported by name so you know which clips need re-uploading after enabling MP4 Fallback.
+5. Re-run the sync any time you add or remove clips in Bunny — there's no automatic watch/webhook, it's a manual button.
+
+The old local upload/NAS-scan path still works (`VIDEO_DIR`) and both sources can coexist in the shared library — Bunny is just the intended primary going forward.
 
 ---
 

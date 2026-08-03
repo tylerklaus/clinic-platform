@@ -1911,11 +1911,11 @@ async function populateClipPicker(selectedUrl) {
     const r = await fetch('/api/presentations/' + slug + '/videos');
     const vids = await r.json();
     vids.forEach(v => {
-      const url = v.scope === 'shared' ? '/videos/shared/' + v.filename : '/videos/p/' + slug + '/' + v.filename;
+      const icon = v.provider === 'bunny' ? '🐇 ' : (v.scope === 'shared' ? '⚡ ' : '📁 ');
       const opt = document.createElement('option');
-      opt.value = url;
-      opt.textContent = (v.scope === 'shared' ? '⚡ ' : '📁 ') + v.original_name + ' (' + (v.size/1024/1024).toFixed(0) + 'MB)';
-      opt.selected = url === selectedUrl;
+      opt.value = v.url;
+      opt.textContent = icon + v.original_name + ' (' + (v.size/1024/1024).toFixed(0) + 'MB)';
+      opt.selected = v.url === selectedUrl;
       sel.appendChild(opt);
     });
   } catch(e) { /* no clips */ }
@@ -1952,17 +1952,17 @@ async function loadServerClipList() {
     clipDiv.innerHTML = '<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Video Clips</div>';
     vids.forEach(v => {
       const mb = (v.size/1024/1024).toFixed(0);
-      const url = v.scope === 'shared' ? '/videos/shared/' + v.filename : '/videos/p/' + slug + '/' + v.filename;
+      const icon = v.provider === 'bunny' ? '&#128007;' : '&#127916;';
       const item = document.createElement('div');
       item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:rgba(255,255,255,0.7);';
-      item.innerHTML = '&#127916; <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + v.original_name + '</span><span style="font-size:10px;color:rgba(255,255,255,0.3);">' + mb + 'MB</span>';
+      item.innerHTML = icon + ' <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + v.original_name + '</span><span style="font-size:10px;color:rgba(255,255,255,0.3);">' + mb + 'MB</span>';
       item.addEventListener('mouseover', () => item.style.background = 'rgba(255,255,255,0.06)');
       item.addEventListener('mouseout', () => item.style.background = '');
       item.addEventListener('click', () => {
         const vid = document.getElementById('video-el');
         if (!vid) return;
         document.getElementById('drop-overlay').style.display = 'none';
-        vid.src = url;
+        vid.src = v.url;
         setView(true);
       });
       clipDiv.appendChild(item);

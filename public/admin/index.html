@@ -107,10 +107,17 @@ textarea{height:70px;resize:vertical;line-height:1.5}
 <div class="tab-panel" id="tab-videos">
   <div class="section-header">
     <h2>Shared Video Library</h2>
-    <button class="btn btn-ghost" id="btn-scan-videos">&#128269; Scan NFS for new clips</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" id="btn-sync-bunny">&#128007; Sync from Bunny</button>
+      <button class="btn btn-ghost" id="btn-scan-videos">&#128269; Scan NFS for new clips</button>
+    </div>
   </div>
   <div class="card">
-    <h3>Upload Shared Clip</h3>
+    <h3>Bunny.net Stream</h3>
+    <p style="font-size:13px;color:var(--text2);">Upload clips at <a href="https://dash.bunny.net" target="_blank" style="color:var(--gold);">dash.bunny.net</a>, then click "Sync from Bunny" above to pull them into the library below. Videos without a working MP4 fallback URL will be skipped — the sync result will tell you which ones.</p>
+  </div>
+  <div class="card">
+    <h3>Upload Shared Clip <span style="font-weight:400;color:var(--text2);font-size:12px;">(local — legacy NAS storage)</span></h3>
     <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Shared clips are available to all presentations.</p>
     <div class="upload-area" id="shared-drop">
       <div style="font-size:32px;">&#127916;</div>
@@ -119,6 +126,9 @@ textarea{height:70px;resize:vertical;line-height:1.5}
       <input type="file" id="shared-file" accept="video/*" style="display:none">
     </div>
     <div class="progress-bar" id="shared-progress"><div class="progress-fill" id="shared-progress-fill" style="width:0%"></div></div>
+  </div>
+  <div class="card">
+    <h3>All Shared Clips</h3>
     <div class="video-list" id="shared-video-list"></div>
   </div>
 </div>
@@ -287,17 +297,40 @@ async function loadSharedVideos() {
   list.innerHTML = '';
   vids.forEach(function(v) {
     var mb = (v.size / 1024 / 1024).toFixed(0);
+    var isBunny = v.provider === 'bunny';
     var div = document.createElement('div');
     div.className = 'video-item';
-    div.innerHTML = '<span style="font-size:20px;">&#127916;</span>' +
+    div.innerHTML = '<span style="font-size:20px;">' + (isBunny ? '&#128007;' : '&#127916;') + '</span>' +
       '<span class="name">' + v.original_name + '</span>' +
       '<span class="meta">' + mb + 'MB</span>' +
-      '<button class="btn btn-danger del-vid-btn" data-id="' + v.id + '" style="font-size:11px;padding:4px 10px;">Delete</button>';
+      (isBunny
+        ? '<span class="badge" style="background:rgba(242,101,34,0.15);color:var(--gold);">Bunny</span>'
+        : '<button class="btn btn-danger del-vid-btn" data-id="' + v.id + '" style="font-size:11px;padding:4px 10px;">Delete</button>');
     list.appendChild(div);
   });
   list.querySelectorAll('.del-vid-btn').forEach(function(btn) {
     btn.addEventListener('click', function() { deleteVideo(this.dataset.id); });
   });
+}
+
+async function syncBunny() {
+  var btn = document.getElementById('btn-sync-bunny');
+  btn.textContent = 'Syncing...';
+  btn.disabled = true;
+  try {
+    var r = await fetch('/api/videos/bunny-sync', { method: 'POST' });
+    var d = await r.json();
+    if (!r.ok) { toast('Sync failed: ' + (d.error || 'unknown error')); return; }
+    var msg = 'Synced: ' + d.added + ' added, ' + d.updated + ' updated, ' + d.removed + ' removed';
+    if (d.skipped && d.skipped.length) msg += '. Skipped (no MP4 fallback found): ' + d.skipped.join(', ');
+    toast(msg);
+    loadSharedVideos();
+  } catch (e) {
+    toast('Sync failed');
+  } finally {
+    btn.innerHTML = '&#128007; Sync from Bunny';
+    btn.disabled = false;
+  }
 }
 
 async function scanVideos() {
@@ -320,6 +353,8 @@ async function scanVideos() {
 function setupVideoUpload() {
   var scanBtn = document.getElementById('btn-scan-videos');
   if (scanBtn) scanBtn.addEventListener('click', scanVideos);
+  var syncBtn = document.getElementById('btn-sync-bunny');
+  if (syncBtn) syncBtn.addEventListener('click', syncBunny);
   var dropEl = document.getElementById('shared-drop');
   var fileEl = document.getElementById('shared-file');
   dropEl.addEventListener('click', function() { fileEl.click(); });

@@ -79,6 +79,17 @@ db.exec(`
   );
 `);
 
+// Schema migration: add Bunny Stream columns to an existing `videos` table without
+// rebuilding it (ALTER TABLE ADD COLUMN is safe/cheap in SQLite; guard against re-running).
+function ensureColumn(table, column, ddl) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
+  if (!cols.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+}
+ensureColumn('videos', 'provider', "provider TEXT DEFAULT 'local'");
+ensureColumn('videos', 'bunny_video_id', 'bunny_video_id TEXT');
+ensureColumn('videos', 'playback_url', 'playback_url TEXT');
+ensureColumn('videos', 'duration_sec', 'duration_sec INTEGER');
+
 // ── MIDDLEWARE ────────────────────────────────────────────────
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '10mb' }));
@@ -112,6 +123,19 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage, limits: { fileSize: 2 * 1024 * 1024 * 1024 } }); // 2GB max
+
+// Bunny.net Stream — remote video library
+const BUNNY_LIBRARY_ID = process.env.BUNNY_LIBRARY_ID || '';
+const BUNNY_API_KEY = process.env.BUNNY_API_KEY || '';
+const BUNNY_PULL_ZONE = process.env.BUNNY_PULL_ZONE || ''; // hostname only, e.g. vz-xxxxxxx.b-cdn.net
+const BUNNY_MP4_RESOLUTIONS = [1080, 720, 480, 360, 240]; // probed high to low; first that 200s wins
+
+// A video row's playable URL: Bunny rows already carry a verified absolute playback_url;
+// local rows are served by this app from disk under a path built from scope/filename.
+function videoUrl(v, slug) {
+  if (v.provider === 'bunny' && v.playback_url) return v.playback_url;
+  return v.scope === 'shared' ? `/videos/shared/${v.filename}` : `/videos/p/${slug}/${v.filename}`;
+}
 
 // ── AUTH HELPERS ──────────────────────────────────────────────
 function hashPassword(pw) {
@@ -318,12 +342,13 @@ app.get('/api/presentations/:slug/videos', (req, res) => {
     SELECT * FROM videos WHERE scope='shared' OR presentation_id=?
     ORDER BY created_at DESC
   `).all(p.id);
-  res.json(videos);
+  res.json(videos.map(v => ({ ...v, url: videoUrl(v, req.params.slug) })));
 });
 
 // List shared videos only (admin)
 app.get('/api/videos/shared', requireAdmin, (req, res) => {
-  res.json(db.prepare("SELECT * FROM videos WHERE scope='shared' ORDER BY created_at DESC").all());
+  const videos = db.prepare("SELECT * FROM videos WHERE scope='shared' ORDER BY created_at DESC").all();
+  res.json(videos.map(v => ({ ...v, url: videoUrl(v) })));
 });
 
 // Upload shared video directly (admin)
@@ -384,6 +409,81 @@ app.post('/api/videos/scan', requireAdmin, (req, res) => {
     });
     res.json({ ok: true, added, message: added > 0 ? `Found and registered ${added} new clip${added > 1 ? 's' : ''}` : 'No new clips found' });
   } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Sync the shared library from Bunny.net Stream
+app.post('/api/videos/bunny-sync', requireAdmin, async (req, res) => {
+  if (!BUNNY_LIBRARY_ID || !BUNNY_API_KEY || !BUNNY_PULL_ZONE) {
+    return res.status(400).json({ error: 'Bunny Stream is not configured — set BUNNY_LIBRARY_ID, BUNNY_API_KEY, and BUNNY_PULL_ZONE in .env' });
+  }
+  try {
+    // 1) Pull the full video list from Bunny, paginating.
+    const itemsPerPage = 100;
+    let page = 1, totalItems = Infinity;
+    const bunnyVideos = [];
+    while ((page - 1) * itemsPerPage < totalItems) {
+      const r = await fetch(
+        `https://video.bunnycdn.com/library/${BUNNY_LIBRARY_ID}/videos?page=${page}&itemsPerPage=${itemsPerPage}&orderBy=date`,
+        { headers: { AccessKey: BUNNY_API_KEY, accept: 'application/json' } }
+      );
+      if (!r.ok) throw new Error(`Bunny API error (list): ${r.status}`);
+      const data = await r.json();
+      bunnyVideos.push(...(data.items || []));
+      totalItems = data.totalItems ?? bunnyVideos.length;
+      page++;
+    }
+
+    // 2) For each finished video, probe candidate MP4 fallback URLs and use whichever
+    // resolution actually exists — MP4 fallback is only generated for videos uploaded
+    // after the library setting was turned on, so this can't be assumed from metadata.
+    const seenGuids = new Set();
+    let added = 0, updated = 0, skipped = [];
+    for (const bv of bunnyVideos) {
+      if (bv.status !== 4) continue; // not finished processing yet
+      seenGuids.add(bv.guid);
+
+      let playbackUrl = null;
+      if (bv.hasMP4Fallback) {
+        const probes = await Promise.all(BUNNY_MP4_RESOLUTIONS.map(async (height) => {
+          const url = `https://${BUNNY_PULL_ZONE}/${bv.guid}/play_${height}p.mp4`;
+          try {
+            const hr = await fetch(url, { method: 'HEAD' });
+            return hr.ok ? { height, url } : null;
+          } catch (e) { return null; }
+        }));
+        const best = probes.filter(Boolean).sort((a, b) => b.height - a.height)[0];
+        if (best) playbackUrl = best.url;
+      }
+      if (!playbackUrl) { skipped.push(bv.title || bv.guid); continue; }
+
+      const existing = db.prepare('SELECT id FROM videos WHERE bunny_video_id=?').get(bv.guid);
+      if (existing) {
+        db.prepare(`UPDATE videos SET original_name=?, size=?, playback_url=?, duration_sec=? WHERE id=?`)
+          .run(bv.title || bv.guid, bv.storageSize || 0, playbackUrl, bv.length || 0, existing.id);
+        updated++;
+      } else {
+        db.prepare(`
+          INSERT INTO videos (filename, original_name, size, scope, presentation_id, uploaded_by, provider, bunny_video_id, playback_url, duration_sec)
+          VALUES (?, ?, ?, 'shared', NULL, ?, 'bunny', ?, ?, ?)
+        `).run(bv.guid, bv.title || bv.guid, bv.storageSize || 0, req.session.user?.id, bv.guid, playbackUrl, bv.length || 0);
+        added++;
+      }
+    }
+
+    // 3) Drop local rows for Bunny videos that no longer exist in the library.
+    const existingBunnyRows = db.prepare("SELECT id, bunny_video_id FROM videos WHERE provider='bunny'").all();
+    let removed = 0;
+    for (const row of existingBunnyRows) {
+      if (!seenGuids.has(row.bunny_video_id)) {
+        db.prepare('DELETE FROM videos WHERE id=?').run(row.id);
+        removed++;
+      }
+    }
+
+    res.json({ ok: true, added, updated, removed, skipped });
+  } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
