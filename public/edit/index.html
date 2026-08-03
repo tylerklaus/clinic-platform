@@ -660,8 +660,8 @@ html, body {
 
 <div id="toast"></div>
 <div id="editor-saving">Saving...</div>
-<script src="/assets/renderer.js"></script>
-<script src="/assets/volleyball-trainer.js"></script>
+<script src="/assets/renderer.js?v=2"></script>
+<script src="/assets/volleyball-trainer.js?v=2"></script>
 <script>
 
 /* ── STATE ── */
@@ -1062,8 +1062,6 @@ function renderSlideContent(slide, container) {
       this.spellcheck = false;
       this.textContent = raw;
       this.focus();
-      const range = document.createRange(); range.selectNodeContents(this);
-      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
     });
     bulletArea.addEventListener('blur', function() {
       this.contentEditable = 'false';
@@ -1252,17 +1250,20 @@ function makeEditable(container, slide) {
     el.spellcheck = false;
 
     el.addEventListener('focus', () => {
+      // Only clear + select-all for placeholder text, so the first keystroke replaces
+      // it. Real content must NOT be auto-selected on focus — otherwise every click
+      // into an existing field selects all of it, and the next keystroke wipes it out.
       if (isPlaceholder || el.dataset.isEmpty === '1') {
         el.textContent = '';
         el.style.opacity = '';
         el.style.fontStyle = '';
         el.dataset.isEmpty = '';
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
       }
-      const range = document.createRange();
-      range.selectNodeContents(el);
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(range);
     });
 
     el.addEventListener('blur', () => {
