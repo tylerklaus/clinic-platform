@@ -10,7 +10,7 @@ Volleyball officials clinic presentation platform. Built for IHSA Boys Volleybal
 - Password-protected presentation access from the listing page
 - Direct `/p/{slug}` links bypass password entirely
 - Video library — shared clips available to all presentations, private clips per presentation
-- 10 slide types: title, scenario, answer reveal, rule change, points of emphasis, mechanics, discussion, casebook, stat, embed (Slido)
+- 12 slide types: title, scenario, answer reveal, rule change, points of emphasis, discussion, casebook, state title, stat, embed (Slido), volleyball rotation trainer, full photo
 
 ## URL Structure
 

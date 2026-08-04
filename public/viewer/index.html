@@ -162,12 +162,12 @@ html,body{height:100%;background:#000;color:#fff;font-family:"Segoe UI",system-u
   <div id="sp-list"></div>
 </div>
 
-<script src="/assets/renderer.js?v=2"></script>
+<script src="/assets/renderer.js?v=5"></script>
 <script src="/assets/volleyball-trainer.js?v=2"></script>
 <script>
 const slug=location.pathname.split("/p/")[1];
 let slides=[],currentSlide=0,showingVideo=true,looping=false,cbPhase=0;
-let mechImageSrc={},titleLogoSrc=null;
+let titleLogoSrc=null;
 const video=document.getElementById("video-el");
 
 function showPasswordPrompt(){
@@ -460,8 +460,8 @@ function setView(wantVideo){
 function advanceNext(){
   const slide=slides[currentSlide];
   if(!slide)return;
-  // If step-reveal is active on emphasis/mechanics/discussion and lines remain, reveal next one
-  const revealTypes = ['emphasis','mechanics','discussion'];
+  // If step-reveal is active on emphasis/discussion and lines remain, reveal next one
+  const revealTypes = ['emphasis','discussion'];
   if(slide.data&&slide.data.stepReveal&&revealTypes.includes(slide.type)&&!allRevealed()){
     revealNext();
     return;
@@ -489,7 +489,7 @@ document.getElementById("tb-prev").addEventListener("click",function(){
   const slide=slides[currentSlide];
   if(!slide)return;
   // If step-reveal is active and some lines are shown, hide all and reset
-  if(slide.data&&slide.data.stepReveal&&['emphasis','mechanics','discussion'].includes(slide.type)&&revealStep>0){
+  if(slide.data&&slide.data.stepReveal&&['emphasis','discussion'].includes(slide.type)&&revealStep>0){
     initRevealLines(); return;
   }
   if(slide.type==="video"&&showingVideo){setView(false);return;}
@@ -516,15 +516,15 @@ document.getElementById("sp-close").addEventListener("click",function(){document
 
 const TYPE_LABELS = {
   title:'Title', video:'Scenario', reveal:'Answer Reveal', rulechange:'Rule Change',
-  emphasis:'Points of Emphasis', mechanics:'Mechanics', discussion:'Discussion',
+  emphasis:'Points of Emphasis', discussion:'Discussion',
   casebook:'Casebook', statetitle:'State Title', stat:'Stat', embed:'Poll',
-  volleyball:'Volleyball Trainer'
+  volleyball:'Volleyball Trainer', photo:'Photo'
 };
 const TYPE_COLORS = {
   title:'#666', video:'#F26522', reveal:'#4caf82', rulechange:'#e05a2b',
-  emphasis:'#5b9bd5', mechanics:'#8e6bbf', discussion:'#e8b84b',
+  emphasis:'#5b9bd5', discussion:'#e8b84b',
   casebook:'#4caf82', statetitle:'#7ba7d4', stat:'#e05a2b', embed:'#aaa',
-  volleyball:'#f59e0b'
+  volleyball:'#f59e0b', photo:'#4caf82'
 };
 
 function renderSlidePanel() {

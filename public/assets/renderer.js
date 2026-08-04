@@ -50,6 +50,31 @@ function revealLine(elem, n) {
   return elem;
 }
 
+// Shrinks every inline font-size within `box` (including `box` itself) proportionally
+// until its content fits inside its own bounds, or a floor ratio is hit. `box` must
+// already be attached to the document — it needs live layout to measure overflow.
+function autoFitText(box) {
+  const sized = [];
+  if (box.style.fontSize) sized.push({ node: box, base: parseFloat(box.style.fontSize) });
+  box.querySelectorAll('*').forEach(child => {
+    if (child.style.fontSize) sized.push({ node: child, base: parseFloat(child.style.fontSize) });
+  });
+  if (!sized.length) return;
+  const MIN_RATIO = 0.55, STEP = 0.94;
+  let ratio = 1, guard = 0;
+  while (guard++ < 40 && ratio > MIN_RATIO) {
+    const overflowing = box.scrollHeight > box.clientHeight + 1 || box.scrollWidth > box.clientWidth + 1;
+    if (!overflowing) break;
+    ratio *= STEP;
+    sized.forEach(s => { s.node.style.fontSize = (s.base * ratio) + 'px'; });
+  }
+}
+
+// Runs autoFitText on every element marked data-autofit within the given (attached) root.
+function runAutoFit(root) {
+  root.querySelectorAll('[data-autofit]').forEach(autoFitText);
+}
+
 function renderSlideContent(slide, container) {
   container.innerHTML = '';
   const w = container.offsetWidth || parseInt(document.getElementById('slide-frame').style.width) || 960;
@@ -126,6 +151,7 @@ function renderSlideContent(slide, container) {
     // body: each line is a reveal line
     const bodyLines = (d.vidBody || slide.body || '').split('\n');
     const bodyWrap = editable(el('div',`position:absolute;left:${392*sc}px;top:${82*sc}px;right:${32*sc}px;bottom:${32*sc}px;font-size:${20*sc}px;color:#1a1a1a;line-height:1.7;overflow:hidden;`),'vidBody','Describe the situation here...');
+    bodyWrap.dataset.autofit = '1';
     bodyLines.forEach((line) => {
       const ln = el('div','white-space:pre-wrap;'); ln.textContent = line;
       bodyWrap.appendChild(ln);
@@ -141,12 +167,14 @@ function renderSlideContent(slide, container) {
     eyebrow.textContent = d.revEyebrow || 'The Call · Answer';
     const ruling = editable(el('div',`position:absolute;top:${46*sc}px;left:${32*sc}px;right:${32*sc}px;font-size:${54*sc}px;font-weight:800;color:#fff;line-height:0.95;letter-spacing:${-0.5*sc}px;overflow:hidden;`),'revRuling','The Ruling');
     ruling.style.maxHeight = `${130*sc}px`;
+    ruling.dataset.autofit = '1';
     ruling.textContent = d.revRuling || slide.title;
     const rulPill = editable(el('div',`position:absolute;top:${h*0.48 - 16*sc}px;left:${32*sc}px;background:${GOLD};color:#fff;font-size:${11*sc}px;font-weight:700;padding:${4*sc}px ${16*sc}px;border-radius:${20*sc}px;letter-spacing:${0.5*sc}px;`),'revRule','NFHS Rule');
     rulPill.textContent = d.revRule || slide.rule || 'NFHS Rule';
     // explanation: each line is a reveal line
     const explLines = (d.revBody || slide.body || '').split('\n');
     const explWrap = editable(el('div',`position:absolute;left:${32*sc}px;right:${32*sc}px;top:${h*0.48 + 24*sc}px;bottom:${84*sc}px;font-size:${18*sc}px;color:#1a1a1a;line-height:1.7;overflow:hidden;`),'revBody','Explanation of the ruling...');
+    explWrap.dataset.autofit = '1';
     explLines.forEach((line) => {
       const ln = el('div','white-space:pre-wrap;'); ln.textContent = line;
       explWrap.appendChild(ln);
@@ -179,6 +207,7 @@ function renderSlideContent(slide, container) {
     hd.textContent = d.rcHeading || slide.title;
     const ruleCardBottom = d.rcHidePenalty ? 58*sc : 160*sc;
     const ruleCard = el('div',`position:absolute;left:${32*sc}px;top:${142*sc}px;right:${32*sc}px;bottom:${ruleCardBottom}px;background:#fff;border-radius:${8*sc}px;border-top:${4*sc}px solid ${GOLD};overflow:hidden;display:flex;`);
+    ruleCard.dataset.autofit = '1';
     const rcImg = d.rcImage || null;
     const ruleCardHdr = el('div',`padding:${10*sc}px ${16*sc}px ${8*sc}px;font-size:${10*sc}px;font-weight:700;letter-spacing:${1.5*sc}px;text-transform:uppercase;color:${GOLD};`);
     ruleCardHdr.textContent = 'New Rule';
@@ -195,14 +224,16 @@ function renderSlideContent(slide, container) {
       photoCol.appendChild(photo);
       ruleCard.appendChild(photoCol);
     }
-    const ratBar = el('div',`position:absolute;left:0;right:0;bottom:0;height:${58*sc}px;background:#fff;border-top:${2*sc}px solid #eee;display:flex;align-items:center;padding:0 ${32*sc}px;gap:${10*sc}px;`);
+    const ratBar = el('div',`position:absolute;left:0;right:0;bottom:0;height:${58*sc}px;background:#fff;border-top:${2*sc}px solid #eee;display:flex;align-items:center;padding:0 ${32*sc}px;gap:${10*sc}px;overflow:hidden;`);
+    ratBar.dataset.autofit = '1';
     const ratLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;flex-shrink:0;`);
     ratLbl.textContent = 'Rationale';
     const ratTxt = editable(el('div',`font-size:${13*sc}px;color:#555;font-style:italic;flex:1;`),'rcNote','Why this rule changed...');
     ratTxt.textContent = d.rcNote || '';
     ratBar.append(ratLbl, ratTxt);
     if (!d.rcHidePenalty) {
-      const penBar = el('div',`position:absolute;left:0;right:0;bottom:${58*sc}px;height:${100*sc}px;background:rgba(242,101,34,0.08);border-top:${2*sc}px solid rgba(242,101,34,0.25);border-bottom:${2*sc}px solid rgba(242,101,34,0.25);display:flex;align-items:flex-start;padding:${8*sc}px ${32*sc}px;gap:${6*sc}px;flex-direction:column;`);
+      const penBar = el('div',`position:absolute;left:0;right:0;bottom:${58*sc}px;height:${100*sc}px;background:rgba(242,101,34,0.08);border-top:${2*sc}px solid rgba(242,101,34,0.25);border-bottom:${2*sc}px solid rgba(242,101,34,0.25);display:flex;align-items:flex-start;padding:${8*sc}px ${32*sc}px;gap:${6*sc}px;flex-direction:column;overflow:hidden;`);
+      penBar.dataset.autofit = '1';
       const penLbl = el('div',`font-size:${10*sc}px;font-weight:700;color:${GOLD};letter-spacing:${2*sc}px;text-transform:uppercase;`);
       penLbl.textContent = 'Penalty';
       const penTxt = editable(el('div',`font-size:${15*sc}px;color:#333;font-weight:500;`),'rcPenalty','Describe the penalty...');
@@ -250,56 +281,6 @@ function renderSlideContent(slide, container) {
     });
     s.append(seasonL,hd2);
 
-  // ── MECHANICS ─────────────────────────────────────────────────────────
-  } else if (slide.type === 'mechanics') {
-    s.style.background = '#EFEFED';
-    if (d.stepReveal) s.dataset.stepReveal = '1';
-    const mPill = d.mechSub ? pill(sc, d.mechSub, false) : null;
-    const mechTopBar = topBar(sc, d.mechHeader || slide.title || 'Mechanics', mPill);
-    const mechBarLbl = mechTopBar.querySelector('span');
-    if (mechBarLbl) { mechBarLbl.dataset.key = 'mechHeader'; mechBarLbl.dataset.placeholder = 'Mechanics heading'; }
-    s.appendChild(mechTopBar);
-    const mechTitle = editable(el('div',`position:absolute;left:${416*sc}px;top:${72*sc}px;right:${32*sc}px;font-size:${22*sc}px;font-weight:800;color:${NAVY};line-height:1.1;`),'mechTitle','Position or Mechanic Name');
-    mechTitle.textContent = d.mechTitle || '';
-    const dBox = el('div',`position:absolute;left:${32*sc}px;top:${80*sc}px;width:${368*sc}px;bottom:${32*sc}px;background:#fff;border-radius:${8*sc}px;overflow:hidden;`);
-    const mechImg = mechImageSrc[currentSlide];
-    if (mechImg) {
-      const mi=document.createElement('img');
-      mi.src=mechImg;
-      mi.style.cssText=`width:100%;height:100%;object-fit:contain;display:block;`;
-      dBox.appendChild(mi);
-    } else {
-      dBox.style.background='#e8e8e4';
-      const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-      svg.setAttribute('width',String(Math.round(180*sc)));
-      svg.setAttribute('height',String(Math.round(130*sc)));
-      svg.setAttribute('viewBox','0 0 180 130');
-      svg.style.cssText='display:block;margin:auto;margin-top:30%;';
-      svg.innerHTML='<rect x="8" y="8" width="164" height="114" fill="none" stroke="#bbb" stroke-width="2" rx="2"/><line x1="90" y1="8" x2="90" y2="122" stroke="#ccc" stroke-width="1.5"/><line x1="8" y1="45" x2="172" y2="45" stroke="#ddd" stroke-width="1" stroke-dasharray="4"/><line x1="8" y1="85" x2="172" y2="85" stroke="#ddd" stroke-width="1" stroke-dasharray="4"/><circle cx="50" cy="65" r="7" fill="'+GOLD+'" opacity="0.7"/><circle cx="130" cy="65" r="7" fill="'+NAVY+'" opacity="0.6"/>';
-      const lbl2=el('div',`text-align:center;font-size:${11*sc}px;color:#bbb;margin-top:${8*sc}px;`);
-      lbl2.textContent='Upload diagram in editor';
-      dBox.append(svg,lbl2);
-    }
-    const pts=(d.mechPoints||'').split('\n').filter(p=>p.trim());
-    const ptArea=el('div',`position:absolute;left:${416*sc}px;right:${32*sc}px;top:${108*sc}px;bottom:${80*sc}px;display:flex;flex-direction:column;justify-content:center;gap:${12*sc}px;`);
-    if (pts.length) {
-      pts.forEach((pt,i)=>{
-        const r=el('div',`display:flex;align-items:flex-start;gap:${14*sc}px;`);
-        revealLine(r, i);
-        const dot=el('div',`width:${10*sc}px;height:${10*sc}px;border-radius:50%;background:${GOLD};flex-shrink:0;margin-top:${6*sc}px;`);
-        const t=el('div',`font-size:${18*sc}px;color:#1a1a1a;line-height:1.5;`);
-        t.dataset.key='mechPoints'; t.textContent=pt;
-        r.append(dot,t);
-        ptArea.appendChild(r);
-      });
-    } else {
-      const placeholder=editable(el('div',`font-size:${17*sc}px;color:#bbb;font-style:italic;padding:${8*sc}px 0;`),'mechPoints','Add bullet points here (one per line)...');
-      placeholder.textContent='Add bullet points here (one per line)...';
-      ptArea.appendChild(placeholder);
-    }
-    ptArea.dataset.key='mechPoints';
-    s.append(dBox, mechTitle, ptArea, noteFooter(sc, 'Note', d.mechNote||''));
-
   // ── DISCUSSION ────────────────────────────────────────────────────────
   } else if (slide.type === 'discussion') {
     s.style.background = NAVY;
@@ -316,16 +297,22 @@ function renderSlideContent(slide, container) {
     const qEl=editable(el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;top:${72*sc}px;font-size:${32*sc}px;font-weight:800;color:#fff;line-height:1.18;`),'discQ','Discussion question goes here.');
     qEl.textContent=d.discQ||'Discussion question goes here.';
     // Bullet points from discCtx (one per line) — each is a reveal line
-    const bullets=(d.discCtx||'').split('\n').filter(l=>l.trim());
-    const bulletArea=editable(el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;top:${148*sc}px;bottom:${28*sc}px;display:flex;flex-direction:column;justify-content:flex-start;gap:${10*sc}px;`),'discCtx','Add discussion points (one per line)...');
-    if(bullets.length){
+    const bullets=(d.discCtx||'').split('\n');
+    const bulletArea=editable(el('div',`position:absolute;left:${32*sc}px;right:${80*sc}px;top:${148*sc}px;bottom:${28*sc}px;display:flex;flex-direction:column;justify-content:flex-start;gap:${10*sc}px;overflow:hidden;`),'discCtx','Add discussion points (one per line)...');
+    bulletArea.dataset.autofit = '1';
+    if(bullets.some(l=>l.trim())){
       bullets.forEach((b,i)=>{
         const row=el('div',`display:flex;align-items:flex-start;gap:${12*sc}px;`);
         revealLine(row, i);
-        const dot=el('div',`width:${8*sc}px;height:${8*sc}px;border-radius:50%;background:${GOLD};flex-shrink:0;margin-top:${7*sc}px;`);
         const txt=el('div',`font-size:${16*sc}px;color:rgba(255,255,255,0.6);line-height:1.5;`);
         txt.textContent=b;
-        row.append(dot,txt);
+        if (b.trim()) {
+          const dot=el('div',`width:${8*sc}px;height:${8*sc}px;border-radius:50%;background:${GOLD};flex-shrink:0;margin-top:${7*sc}px;`);
+          row.append(dot,txt);
+        } else {
+          row.style.minHeight = `${16*sc*1.5}px`;
+          row.append(txt);
+        }
         bulletArea.appendChild(row);
       });
     } else {
@@ -346,6 +333,7 @@ function renderSlideContent(slide, container) {
 
     if (phase===0) {
       const sb=el('div',`position:absolute;left:${32*sc}px;top:${80*sc}px;right:${32*sc}px;bottom:${64*sc}px;background:#fff;border-radius:${8*sc}px;overflow:hidden;`);
+      sb.dataset.autofit = '1';
       const sh=el('div',`padding:${12*sc}px ${20*sc}px;background:#f0f0ee;font-size:${10*sc}px;font-weight:700;color:#aaa;letter-spacing:${2*sc}px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;`);
       const shtxt=el('span','');shtxt.textContent='Situation';
       const hint=el('span',`font-size:${11*sc}px;color:#ccc;font-weight:400;letter-spacing:0;text-transform:none;`);hint.textContent='Advance for ruling →';
@@ -364,6 +352,7 @@ function renderSlideContent(slide, container) {
       // Left col: situation — will slide in from left
       const leftCol=el('div',`position:absolute;left:${32*sc}px;top:${80*sc}px;width:${leftW}px;bottom:${8*sc}px;background:#fff;border-radius:${8*sc}px;overflow:hidden;`);
       leftCol.dataset.cbLeft = '1';
+      leftCol.dataset.autofit = '1';
       const lch=el('div',`padding:${10*sc}px ${16*sc}px;font-size:${10*sc}px;font-weight:700;letter-spacing:${2*sc}px;text-transform:uppercase;color:#aaa;background:#f5f5f3;`);
       lch.textContent='Situation';
       const lcb=editable(el('div',`padding:${14*sc}px ${16*sc}px;font-size:${15*sc}px;color:#888;line-height:1.6;white-space:pre-wrap;`),'cbSit','Describe the situation...');
@@ -380,6 +369,7 @@ function renderSlideContent(slide, container) {
       rcb.textContent=d.cbRuling||'';
       rulingCard.append(rch,rcb);
       const commentCard=el('div',`background:#fff;border-radius:${8*sc}px;flex:1;overflow:hidden;border-left:${3*sc}px solid rgba(0,0,0,0.06);`);
+      commentCard.dataset.autofit = '1';
       const cch=el('div',`padding:${8*sc}px ${16*sc}px;font-size:${10*sc}px;font-weight:700;letter-spacing:${2*sc}px;text-transform:uppercase;color:#888;background:#f8f8f6;`);
       cch.textContent='Comment';
       const ccb=editable(el('div',`padding:${12*sc}px ${16*sc}px;font-size:${15*sc}px;color:#555;line-height:1.65;white-space:pre-wrap;font-style:italic;`),'cbComment','Explain why this is the ruling...');
@@ -396,7 +386,8 @@ function renderSlideContent(slide, container) {
     s.appendChild(el('div',`position:absolute;right:${-60*sc}px;top:${-60*sc}px;width:${320*sc}px;height:${320*sc}px;border-radius:50%;border:${5*sc}px solid rgba(242,101,34,0.12);`));
     s.appendChild(el('div',`position:absolute;right:${20*sc}px;top:${20*sc}px;width:${160*sc}px;height:${160*sc}px;border-radius:50%;border:${3*sc}px solid rgba(242,101,34,0.07);`));
     const sideW = 220*sc;
-    const sidePanel=el('div',`position:absolute;right:0;top:0;bottom:0;width:${sideW}px;background:rgba(255,255,255,0.04);border-left:${1*sc}px solid rgba(255,255,255,0.07);display:flex;flex-direction:column;justify-content:center;padding:${32*sc}px ${20*sc}px;gap:${16*sc}px;`);
+    const sidePanel=el('div',`position:absolute;right:0;top:0;bottom:0;width:${sideW}px;background:rgba(255,255,255,0.04);border-left:${1*sc}px solid rgba(255,255,255,0.07);display:flex;flex-direction:column;justify-content:center;padding:${32*sc}px ${20*sc}px;gap:${16*sc}px;overflow:hidden;`);
+    sidePanel.dataset.autofit = '1';
     const sideLabel=el('div',`font-size:${9*sc}px;font-weight:700;color:${GOLD};letter-spacing:${3*sc}px;text-transform:uppercase;margin-bottom:${4*sc}px;`);
     sideLabel.textContent='Details';
     const sideTxt=editable(el('div',`font-size:${13*sc}px;color:rgba(255,255,255,0.5);line-height:1.7;white-space:pre-wrap;`),'stSideText','Location, date, or other details...');
@@ -417,7 +408,8 @@ function renderSlideContent(slide, container) {
   // ── STAT ──────────────────────────────────────────────────────────────
   } else if (slide.type === 'stat') {
     s.style.background = NAVY;
-    const rPanel=el('div',`position:absolute;right:0;top:0;bottom:0;width:${380*sc}px;background:rgba(242,101,34,0.07);border-left:${2*sc}px solid rgba(242,101,34,0.15);display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:${48*sc}px ${44*sc}px;`);
+    const rPanel=el('div',`position:absolute;right:0;top:0;bottom:0;width:${380*sc}px;background:rgba(242,101,34,0.07);border-left:${2*sc}px solid rgba(242,101,34,0.15);display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:${48*sc}px ${44*sc}px;overflow:hidden;`);
+    rPanel.dataset.autofit = '1';
     // stat body lines as reveal lines
     const stBodyLines2 = (d.stBody||'').split('\n');
     const stBodyWrap2=editable(el('div',`font-size:${17*sc}px;color:rgba(255,255,255,0.55);line-height:1.7;`),'stBody','Supporting body text...');
@@ -442,9 +434,26 @@ function renderSlideContent(slide, container) {
     // Presentation viewer: drags/edits update the live view only — never persisted,
     // so the slide always resets to its saved layout the next time it's shown.
     if (window.VolleyballTrainer) window.VolleyballTrainer.mount(vbtRoot, d, sc, { onChange: null });
+
+  // ── FULL PHOTO ────────────────────────────────────────────────────────
+  } else if (slide.type === 'photo') {
+    s.style.background = '#000';
+    if (d.photoImage) {
+      const img = document.createElement('img');
+      img.src = d.photoImage;
+      img.style.cssText = `width:100%;height:100%;object-fit:${d.photoFit === 'contain' ? 'contain' : 'cover'};display:block;`;
+      s.appendChild(img);
+    } else {
+      const ph = el('div','position:absolute;inset:0;display:flex;align-items:center;justify-content:center;');
+      const txt = el('div',`font-size:${15*sc}px;font-weight:600;color:rgba(255,255,255,0.25);`);
+      txt.textContent = 'No photo uploaded';
+      ph.appendChild(txt);
+      s.appendChild(ph);
+    }
   }
 
   container.appendChild(s);
+  runAutoFit(s);
 }
 function el(tag, css) {
   const d = document.createElement(tag);
