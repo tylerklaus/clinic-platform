@@ -35,7 +35,10 @@ header h1{font-size:15px;font-weight:700;color:#fff;flex:1;overflow:hidden;text-
 #live{width:100%;max-width:900px;display:none;flex-direction:column;gap:16px;margin:auto 0;}
 #progress{font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;text-align:center;}
 #q-text{font-size:30px;font-weight:800;color:#fff;text-align:center;line-height:1.25;padding:0 20px;}
-#q-video{display:none;max-width:100%;max-height:280px;border-radius:10px;background:#000;margin:0 auto;flex-shrink:0;}
+#q-video-wrap{display:none;position:relative;max-width:100%;width:fit-content;margin:0 auto;flex-shrink:0;}
+#q-video{display:block;max-width:100%;max-height:280px;border-radius:10px;background:#000;}
+#btn-video-fs{position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.25);color:#fff;border-radius:6px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;}
+#btn-video-fs:hover{background:rgba(0,0,0,0.75);}
 #opt-list{display:flex;flex-direction:column;gap:12px;}
 .opt-bar{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;overflow:hidden;}
 .opt-bar-fill{position:absolute;top:0;left:0;bottom:0;background:rgba(242,101,34,0.22);transition:width 0.4s ease;z-index:0;}
@@ -75,7 +78,10 @@ header h1{font-size:15px;font-weight:700;color:#fff;flex:1;overflow:hidden;text-
     <div id="live">
       <div id="progress"></div>
       <div id="q-text"></div>
-      <video id="q-video" controls></video>
+      <div id="q-video-wrap">
+        <video id="q-video" controls></video>
+        <button id="btn-video-fs" title="Play video fullscreen"><i class="ti ti-maximize"></i></button>
+      </div>
       <div id="opt-list"></div>
       <div id="total-votes"></div>
     </div>
@@ -106,26 +112,36 @@ function updateVideo(url) {
   if (url === currentVideoUrl) return;
   currentVideoUrl = url;
   const video = document.getElementById('q-video');
+  const wrap = document.getElementById('q-video-wrap');
   if (url) {
     video.src = url;
-    video.style.display = 'block';
+    wrap.style.display = 'block';
     video.load();
   } else {
     video.pause();
     video.removeAttribute('src');
     video.load();
-    video.style.display = 'none';
+    wrap.style.display = 'none';
   }
 }
 
-// Fullscreen — covers vendor-prefixed Safari APIs too.
+// Fullscreen — covers vendor-prefixed Safari APIs too. requestFullscreen can target
+// any element: document.documentElement for the whole page (used for the presenting
+// session itself), or the <video> element for a fullscreen video takeover — the browser
+// tracks a single fullscreenElement, so requesting fullscreen on the video while the
+// page is already fullscreen just swaps which element fills the screen, still counting
+// as one continuous fullscreen session.
+let sessionLive = false;
+let intentionalFsExit = false;
 function fsElement() {
   return document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
 }
-function enterFullscreen() {
-  const el = document.documentElement;
+function requestFsOn(el) {
   const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-  if (req && !fsElement()) { try { req.call(el); } catch (e) {} }
+  if (req) { try { req.call(el); } catch (e) {} }
+}
+function enterFullscreen() {
+  if (!fsElement()) requestFsOn(document.documentElement);
 }
 function exitFullscreen() {
   const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
@@ -136,10 +152,31 @@ function updateFsIcon() {
     ? '<i class="ti ti-minimize"></i>' : '<i class="ti ti-maximize"></i>';
 }
 ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
-  document.addEventListener(evt, updateFsIcon);
+  document.addEventListener(evt, () => {
+    updateFsIcon();
+    // Any fullscreen exit we didn't explicitly ask for (manual toggle-off or End
+    // Session) — most commonly the video's own fullscreen closing when it finishes
+    // playing or the presenter hits Escape — should drop back to the page-level
+    // fullscreen session rather than dumping the presenter out to a windowed browser
+    // mid-session.
+    if (!fsElement() && !intentionalFsExit && sessionLive) {
+      requestFsOn(document.documentElement);
+    }
+    intentionalFsExit = false;
+  });
 });
 document.getElementById('btn-fullscreen').addEventListener('click', () => {
-  fsElement() ? exitFullscreen() : enterFullscreen();
+  if (fsElement()) { intentionalFsExit = true; exitFullscreen(); }
+  else enterFullscreen();
+});
+document.getElementById('btn-video-fs').addEventListener('click', () => {
+  requestFsOn(document.getElementById('q-video'));
+});
+document.getElementById('q-video').addEventListener('ended', () => {
+  // Leave the video's own fullscreen (if that's what's currently fullscreen) so the
+  // presenter lands back on the question view — the fullscreenchange handler above
+  // takes care of re-entering page-level fullscreen automatically.
+  if (fsElement() === document.getElementById('q-video')) exitFullscreen();
 });
 
 function renderQr(el, size) {
@@ -162,6 +199,7 @@ function fmtCount(n) { return n === 1 ? '1 vote' : n + ' votes'; }
 
 function renderState(state) {
   const isLive = !!state.current;
+  sessionLive = isLive;
   document.getElementById('lobby').style.display = isLive ? 'none' : 'flex';
   document.getElementById('live').style.display = isLive ? 'flex' : 'none';
   document.getElementById('controls-bar').style.display = isLive ? 'block' : 'none';
@@ -263,6 +301,7 @@ document.getElementById('btn-reveal-answer').addEventListener('click', async () 
 document.getElementById('btn-end').addEventListener('click', async () => {
   if (!confirm('End this session? Voters will see "waiting for host" until you start again.')) return;
   await fetch('/api/quizzes/' + slug + '/end', { method: 'POST' });
+  intentionalFsExit = true;
   exitFullscreen();
   poll();
 });

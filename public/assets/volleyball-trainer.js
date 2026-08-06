@@ -8,7 +8,15 @@
 //              public presentation viewer where drags are live-only and never saved.
 
 (function () {
-  const CLOCKWISE = ['RB', 'MB', 'LB', 'LF', 'MF', 'RF'];
+  // Slot 1 = right back (server), 2 = right front, 3 = middle front, 4 = left front,
+  // 5 = left back, 6 = middle back — standard volleyball numbering. ROTATION_ORDER is
+  // the clockwise path a player follows as the team rotates (1 moves to 6, 2 moves to
+  // 1, etc.); each slot's zone at a given offset is found by locating its starting zone
+  // in that path and stepping forward `offset` places — NOT by indexing a single flat
+  // array with (offset + slot - 1), which produces the wrong (reversed) zone assignment
+  // for every slot but 1 and 4 once offset > 0.
+  const STARTING_ORDER = ['RB', 'RF', 'MF', 'LF', 'LB', 'MB'];
+  const ROTATION_ORDER = ['RB', 'MB', 'LB', 'LF', 'MF', 'RF'];
   const FRONT_ZONES = ['LF', 'MF', 'RF'];
   const ZONE_COORDS = {
     RF: { x: 25, y: 5 }, MF: { x: 15, y: 5 }, LF: { x: 5, y: 5 },
@@ -106,7 +114,9 @@
   }
 
   function zoneForLineupPosition(n, offset) {
-    return CLOCKWISE[(offset + (n - 1)) % 6];
+    const base = STARTING_ORDER[n - 1];
+    const idx = ROTATION_ORDER.indexOf(base);
+    return ROTATION_ORDER[(idx + offset) % 6];
   }
 
   function computeFormation(rotationOffset) {
@@ -184,7 +194,7 @@
       const controls = div('vbt-panel vbt-controls');
       controls.appendChild(Object.assign(document.createElement('div'), { className: 'vbt-h', textContent: 'Controls' }));
 
-      const rotLabel = document.createElement('label'); rotLabel.className = 'vbt-label'; rotLabel.textContent = 'Rotation';
+      const rotLabel = document.createElement('label'); rotLabel.className = 'vbt-label'; rotLabel.textContent = 'Rotation (serving order start)';
       const rotSelect = document.createElement('select'); rotSelect.className = 'vbt-select';
       for (let i = 0; i < 6; i++) {
         const o = document.createElement('option'); o.value = String(i); o.textContent = 'Rotation ' + (i + 1);
@@ -194,7 +204,7 @@
 
       const rotateRow = div('vbt-row');
       const rotateBtn = document.createElement('button'); rotateBtn.className = 'vbt-btn'; rotateBtn.textContent = '↻ Rotate';
-      const resetBtn = document.createElement('button'); resetBtn.className = 'vbt-btn'; resetBtn.textContent = 'Reset';
+      const resetBtn = document.createElement('button'); resetBtn.className = 'vbt-btn'; resetBtn.textContent = 'Reset Positions';
       rotateRow.append(rotateBtn, resetBtn);
       controls.appendChild(rotateRow);
 
@@ -216,21 +226,21 @@
 
       const uniformRow = div('vbt-check-row');
       const uniformCheck = document.createElement('input'); uniformCheck.type = 'checkbox';
-      const uniformLbl = document.createElement('label'); uniformLbl.textContent = 'Same color (except Libero)';
+      const uniformLbl = document.createElement('label'); uniformLbl.textContent = 'Same color for all (except Libero)';
       uniformRow.append(uniformCheck, uniformLbl);
-      const uniformHint = div('vbt-hint', ''); uniformHint.textContent = 'Hides the front/back row color cue.';
+      const uniformHint = div('vbt-hint', ''); uniformHint.textContent = 'For advanced drills — hides the front/back row color cue so trainees rely on position, not color.';
       controls.append(uniformRow, uniformHint);
 
       const checkBtn = document.createElement('button'); checkBtn.className = 'vbt-btn vbt-primary'; checkBtn.style.marginBottom = '6px';
       checkBtn.textContent = 'Check Overlaps';
       const hideBtn = document.createElement('button'); hideBtn.className = 'vbt-btn';
-      hideBtn.textContent = 'Hide Lineup';
+      hideBtn.textContent = 'Hide Lineup (memory test)';
       controls.append(checkBtn, hideBtn);
 
       const legend = div('vbt-legend');
       [
         ['#2563eb', 'Front row'], ['#16a34a', 'Back row'], ['#f59e0b', 'Libero'],
-        ['#9333ea', 'Setter (badge)'], ['#dc2626', 'Overlap violation'],
+        ['#9333ea', 'Setter (badge on player)'], ['#dc2626', 'Overlap violation'],
         ['#eab308', 'Double-clicked player'], ['#06b6d4', 'Bound-by neighbor']
       ].forEach(([color, text]) => {
         const row = div(); const dot = div('vbt-dot'); dot.style.background = color;
@@ -239,7 +249,7 @@
       });
       controls.appendChild(legend);
       const boundHint = div('vbt-hint', 'margin-top:6px;');
-      boundHint.textContent = "Double-click any player to see who they're bound by. Double-click again, or double-click empty court, to clear.";
+      boundHint.textContent = "Double-click any player to see who they're bound by (the overlap rule's adjacent left/right and front/back partners). Double-click them again, or double-click empty court, to clear.";
       controls.appendChild(boundHint);
 
       // ── Court column ────────────────────────────────────────────
@@ -249,7 +259,13 @@
 
       // ── Lineup column ───────────────────────────────────────────
       const lineupPanel = div('vbt-panel vbt-lineup');
-      lineupPanel.appendChild(Object.assign(document.createElement('div'), { className: 'vbt-h', textContent: 'Lineup Order' }));
+      const lineupHeader = document.createElement('div'); lineupHeader.className = 'vbt-h';
+      lineupHeader.textContent = 'Lineup Order ';
+      const lineupHeaderHint = document.createElement('span');
+      lineupHeaderHint.style.cssText = 'font-weight:400;text-transform:none;letter-spacing:normal;color:#64748b;';
+      lineupHeaderHint.textContent = '(click number or name to edit)';
+      lineupHeader.appendChild(lineupHeaderHint);
+      lineupPanel.appendChild(lineupHeader);
       const lineupList = document.createElement('ul'); lineupList.className = 'vbt-lineup-list';
       lineupPanel.appendChild(lineupList);
       const status = div('vbt-status idle', ''); status.textContent = 'Set a rotation, drag players, then check.';
@@ -275,6 +291,8 @@
         const pattern = svgEl('pattern', { id: 'vbtNetMesh', width: 8, height: 8, patternUnits: 'userSpaceOnUse' });
         pattern.appendChild(svgEl('rect', { x: 0, y: 0, width: 8, height: 8, fill: '#e2e8f0', opacity: 0.15 }));
         pattern.appendChild(svgEl('path', { d: 'M0,8 L8,0', stroke: '#cbd5e1', 'stroke-width': 1 }));
+        pattern.appendChild(svgEl('path', { d: 'M-1,1 L1,-1', stroke: '#cbd5e1', 'stroke-width': 1 }));
+        pattern.appendChild(svgEl('path', { d: 'M7,9 L9,7', stroke: '#cbd5e1', 'stroke-width': 1 }));
         defs.appendChild(pattern);
         svg.appendChild(defs);
 
@@ -324,6 +342,8 @@
 
         g.appendChild(svgEl('rect', { x: p0.x - 12, y: netTop - 8, width: 5, height: (netY - netTop) + 32, rx: 2, fill: '#1f2937' }));
         g.appendChild(svgEl('rect', { x: p1.x + 7, y: netTop - 8, width: 5, height: (netY - netTop) + 32, rx: 2, fill: '#1f2937' }));
+        g.appendChild(svgEl('circle', { cx: p0.x - 9.5, cy: netTop - 8, r: 4, fill: '#1f2937' }));
+        g.appendChild(svgEl('circle', { cx: p1.x + 9.5, cy: netTop - 8, r: 4, fill: '#1f2937' }));
 
         g.appendChild(svgEl('rect', { x: p0.x - 5, y: netTop + 5, width: (p1.x - p0.x) + 10, height: (netY - netTop) - 9, fill: 'url(#vbtNetMesh)', opacity: 0.9 }));
         g.appendChild(svgEl('rect', { x: p0.x - 7, y: netTop, width: (p1.x - p0.x) + 14, height: 5.5, rx: 2, fill: '#ffffff', stroke: '#94a3b8', 'stroke-width': 0.8 }));
@@ -487,6 +507,8 @@
         }
 
         g.appendChild(svgEl('ellipse', { cx: 0, cy: BODY_H / 2 + 6, rx: 13, ry: 3.5, class: 'vbt-player-shadow' }));
+        g.appendChild(svgEl('rect', { x: -8, y: BODY_H / 2 - 3.5, width: 5, height: 9.5, rx: 2.5, fill: '#334155' }));
+        g.appendChild(svgEl('rect', { x: 2.5, y: BODY_H / 2 - 3.5, width: 5, height: 9.5, rx: 2.5, fill: '#334155' }));
         g.appendChild(svgEl('rect', { x: -BODY_W / 2 - 4, y: SHOULDER_Y + 2, width: 5, height: 14, rx: 2.5, fill }));
         g.appendChild(svgEl('rect', { x: BODY_W / 2 - 1, y: SHOULDER_Y + 2, width: 5, height: 14, rx: 2.5, fill }));
 
@@ -545,6 +567,7 @@
           input.className = 'vbt-jersey-input';
           input.value = isLibero ? 'L' : state.jerseys[n];
           input.disabled = isLibero;
+          input.title = isLibero ? 'Libero is on court for this slot' : 'Click to edit jersey number';
           input.addEventListener('change', (e) => {
             const v = e.target.value.trim();
             state.jerseys[n] = v === '' ? String(n) : v;
@@ -563,6 +586,7 @@
           const posInput = document.createElement('input');
           posInput.type = 'text'; posInput.className = 'vbt-position-input';
           posInput.value = state.positionNames[n];
+          posInput.title = 'Click to rename this position (e.g. OH1, Setter, Libero…)';
           posInput.addEventListener('change', (e) => {
             const v = e.target.value.trim();
             state.positionNames[n] = v === '' ? `Position ${n}` : v;
@@ -718,8 +742,9 @@
       checkBtn.addEventListener('click', checkOverlaps);
       hideBtn.addEventListener('click', () => {
         state.lineupHidden = !state.lineupHidden;
-        hideBtn.textContent = state.lineupHidden ? 'Show Lineup' : 'Hide Lineup';
+        hideBtn.textContent = state.lineupHidden ? 'Show Lineup' : 'Hide Lineup (memory test)';
         renderLineupPanel();
+        emit();
       });
 
       // Double-clicking empty court (not a player) clears any bound-by highlight.
