@@ -147,6 +147,7 @@ html,body{height:100%;background:#000;color:#fff;font-family:"Segoe UI",system-u
     </div>
   </div>
 </div>
+<div id="video-library">
   <div id="vl-header">
     <h2>Video Clips</h2>
     <button class="tb-btn" id="vl-close" style="padding:0 10px;height:30px;font-size:12px;"><i class="ti ti-x"></i></button>
@@ -162,7 +163,7 @@ html,body{height:100%;background:#000;color:#fff;font-family:"Segoe UI",system-u
   <div id="sp-list"></div>
 </div>
 
-<script src="/assets/renderer.js?v=5"></script>
+<script src="/assets/renderer.js?v=6"></script>
 <script src="/assets/volleyball-trainer.js?v=3"></script>
 <script>
 const slug=location.pathname.split("/p/")[1];
@@ -492,7 +493,8 @@ document.getElementById("tb-prev").addEventListener("click",function(){
   if(slide.data&&slide.data.stepReveal&&['emphasis','discussion'].includes(slide.type)&&revealStep>0){
     initRevealLines(); return;
   }
-  if(slide.type==="video"&&showingVideo){setView(false);return;}
+  const showText=slide.data?slide.data.vidShowText!==false:true;
+  if(slide.type==="video"&&showingVideo&&showText){setView(false);return;}
   if(slide.type==="casebook"&&cbPhase===1){cbPhase=0;dissolve(()=>setView(false));return;}
   if(currentSlide>0){
     currentSlide--;cbPhase=0;
@@ -517,13 +519,13 @@ document.getElementById("sp-close").addEventListener("click",function(){document
 const TYPE_LABELS = {
   title:'Title', video:'Scenario', reveal:'Answer Reveal', rulechange:'Rule Change',
   emphasis:'Points of Emphasis', discussion:'Discussion',
-  casebook:'Casebook', statetitle:'State Title', stat:'Stat', embed:'Poll',
+  casebook:'Casebook', statetitle:'State Title',
   volleyball:'Volleyball Trainer', photo:'Photo'
 };
 const TYPE_COLORS = {
   title:'#666', video:'#F26522', reveal:'#4caf82', rulechange:'#e05a2b',
   emphasis:'#5b9bd5', discussion:'#e8b84b',
-  casebook:'#4caf82', statetitle:'#7ba7d4', stat:'#e05a2b', embed:'#aaa',
+  casebook:'#4caf82', statetitle:'#7ba7d4',
   volleyball:'#f59e0b', photo:'#4caf82'
 };
 

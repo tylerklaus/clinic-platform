@@ -181,23 +181,6 @@ function renderSlideContent(slide, container) {
     });
     s.append(darkHalf, eyebrow, ruling, rulPill, explWrap, noteFooter(sc, d.revNoteLabel, d.revNote));
 
-  // ── EMBED / SLIDO ─────────────────────────────────────────────────────
-  } else if (slide.type === 'embed') {
-    s.style.background = NAVY;
-    const bar = topBar(sc, d.embHeader || slide.title || 'Live Poll', null);
-    const area = el('div',`position:absolute;left:0;right:0;top:${64*sc}px;bottom:0;display:flex;align-items:center;justify-content:center;`);
-    if (d.embHtml) {
-      const wrap = el('div',`width:100%;height:100%;`);
-      wrap.innerHTML = d.embHtml;
-      wrap.querySelectorAll('iframe').forEach(f=>{ f.style.width='100%'; f.style.height=`${h-64*sc}px`; f.style.border='none'; });
-      area.appendChild(wrap);
-    } else {
-      const ph = el('div',`text-align:center;color:rgba(255,255,255,0.3);font-size:${15*sc}px;line-height:2;`);
-      ph.innerHTML = 'Paste Slido or embed HTML in the editor';
-      area.appendChild(ph);
-    }
-    s.append(bar, area);
-
   // ── RULE CHANGE ───────────────────────────────────────────────────────
   } else if (slide.type === 'rulechange') {
     s.style.background = '#EFEFED';
@@ -209,8 +192,8 @@ function renderSlideContent(slide, container) {
     const ruleCard = el('div',`position:absolute;left:${32*sc}px;top:${142*sc}px;right:${32*sc}px;bottom:${ruleCardBottom}px;background:#fff;border-radius:${8*sc}px;border-top:${4*sc}px solid ${GOLD};overflow:hidden;display:flex;`);
     ruleCard.dataset.autofit = '1';
     const rcImg = d.rcImage || null;
-    const ruleCardHdr = el('div',`padding:${10*sc}px ${16*sc}px ${8*sc}px;font-size:${10*sc}px;font-weight:700;letter-spacing:${1.5*sc}px;text-transform:uppercase;color:${GOLD};`);
-    ruleCardHdr.textContent = 'New Rule';
+    const ruleCardHdr = editable(el('div',`padding:${10*sc}px ${16*sc}px ${8*sc}px;font-size:${10*sc}px;font-weight:700;letter-spacing:${1.5*sc}px;text-transform:uppercase;color:${GOLD};`),'rcNewLabel','New Rule');
+    ruleCardHdr.textContent = d.rcNewLabel || 'New Rule';
     const ruleCardBody = editable(el('div',`padding:${14*sc}px ${18*sc}px;font-size:${19*sc}px;color:#111;line-height:1.65;white-space:pre-wrap;font-weight:500;`),'rcNew','New rule text goes here...');
     ruleCardBody.textContent = d.rcNew || '';
     const textCol = el('div',`width:${rcImg ? 480*sc+'px' : '100%'};display:flex;flex-direction:column;`);
@@ -264,9 +247,14 @@ function renderSlideContent(slide, container) {
     const items = isEditor
       ? allItems.filter(it=>it.t.trim())
       : allItems.filter(it=>it.t.trim() && !it.hidden);
-    const avail = h - 140*sc, itemH = Math.min(avail / Math.max(items.length,1), 98*sc);
+    // Flex column instead of fixed per-row heights: rows size to their own content (so
+    // an item with a longer description doesn't get clipped or overlap its neighbor),
+    // and space-evenly redistributes the leftover vertical space when there are fewer
+    // items — both "move" naturally instead of needing a manually computed itemH.
+    const itemsWrap = el('div',`position:absolute;left:${32*sc}px;right:${32*sc}px;top:${128*sc}px;bottom:${32*sc}px;display:flex;flex-direction:column;justify-content:space-evenly;gap:${14*sc}px;overflow:hidden;`);
+    itemsWrap.dataset.autofit = '1';
     items.forEach((item,i)=>{
-      const row = el('div',`position:absolute;left:${32*sc}px;right:${32*sc}px;top:${128*sc + i*itemH}px;height:${itemH}px;display:flex;align-items:center;gap:${20*sc}px;`);
+      const row = el('div',`display:flex;align-items:center;gap:${20*sc}px;flex-shrink:0;`);
       if (isEditor && item.hidden) row.dataset.dim = '1';
       revealLine(row, i);
       const num = el('div',`width:${40*sc}px;height:${40*sc}px;border-radius:${6*sc}px;background:${GOLD};display:flex;align-items:center;justify-content:center;font-size:${18*sc}px;font-weight:800;color:#fff;flex-shrink:0;`);
@@ -277,9 +265,9 @@ function renderSlideContent(slide, container) {
       right2.appendChild(rt);
       if(item.desc){const rd=el('div',`font-size:${14*sc}px;color:rgba(255,255,255,0.45);margin-top:${2*sc}px;`);rd.textContent=item.desc;right2.appendChild(rd);}
       row.append(num,right2);
-      s.appendChild(row);
+      itemsWrap.appendChild(row);
     });
-    s.append(seasonL,hd2);
+    s.append(seasonL,hd2,itemsWrap);
 
   // ── DISCUSSION ────────────────────────────────────────────────────────
   } else if (slide.type === 'discussion') {
@@ -404,27 +392,6 @@ function renderSlideContent(slide, container) {
     const stBodyWrap=editable(el('div',`position:absolute;left:${28*sc}px;bottom:${28*sc}px;right:${mainRight}px;font-size:${15*sc}px;color:rgba(255,255,255,0.4);line-height:1.6;`),'stBody','Subtitle or supporting text...');
     stBodyLines.forEach((line)=>{ const ln=el('div','');ln.textContent=line;stBodyWrap.appendChild(ln); });
     s.append(sidePanel, eyeW, mainTitle, divBar, stBodyWrap);
-
-  // ── STAT ──────────────────────────────────────────────────────────────
-  } else if (slide.type === 'stat') {
-    s.style.background = NAVY;
-    const rPanel=el('div',`position:absolute;right:0;top:0;bottom:0;width:${380*sc}px;background:rgba(242,101,34,0.07);border-left:${2*sc}px solid rgba(242,101,34,0.15);display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:${48*sc}px ${44*sc}px;overflow:hidden;`);
-    rPanel.dataset.autofit = '1';
-    // stat body lines as reveal lines
-    const stBodyLines2 = (d.stBody||'').split('\n');
-    const stBodyWrap2=editable(el('div',`font-size:${17*sc}px;color:rgba(255,255,255,0.55);line-height:1.7;`),'stBody','Supporting body text...');
-    stBodyLines2.forEach((line)=>{ const ln=el('div','white-space:pre-wrap;');ln.textContent=line;stBodyWrap2.appendChild(ln); });
-    if(d.stSource){const src=editable(el('div',`font-size:${11*sc}px;color:rgba(255,255,255,0.22);font-style:italic;margin-top:${16*sc}px;`),'stSource','Source');src.textContent=d.stSource;rPanel.appendChild(src);}
-    rPanel.appendChild(stBodyWrap2);
-    s.appendChild(el('div',`position:absolute;left:0;top:0;bottom:0;width:${10*sc}px;background:${GOLD};`));
-    const eyeL=editable(el('div',`position:absolute;left:${32*sc}px;top:${36*sc}px;font-size:${11*sc}px;font-weight:700;color:${GOLD};letter-spacing:${3*sc}px;text-transform:uppercase;`),'stTitle','Did You Know?');
-    eyeL.textContent=d.stTitle||slide.title||'Did You Know?';
-    s.appendChild(el('div',`position:absolute;left:${32*sc}px;top:${64*sc}px;width:${40*sc}px;height:${3*sc}px;background:${GOLD};border-radius:2px;`));
-    const bigN=editable(el('div',`position:absolute;left:${28*sc}px;top:${80*sc}px;font-size:${130*sc}px;font-weight:900;color:#fff;line-height:0.88;letter-spacing:${-2*sc}px;right:${400*sc}px;overflow:hidden;`),'stStat','—');
-    bigN.textContent=d.stStat||'—';
-    const stLbl2=editable(el('div',`position:absolute;left:${32*sc}px;bottom:${56*sc}px;right:${400*sc}px;font-size:${18*sc}px;color:${GOLD};font-weight:600;line-height:1.4;`),'stLabel','Stat label');
-    stLbl2.textContent=d.stLabel||'';
-    s.append(eyeL,bigN,stLbl2,rPanel);
 
   // ── VOLLEYBALL ROTATION TRAINER ─────────────────────────────────────────
   } else if (slide.type === 'volleyball') {

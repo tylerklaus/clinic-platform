@@ -331,8 +331,6 @@ html, body {
 .dot-discussion { background: #e8b84b; }
 .dot-casebook { background: #4caf82; }
 .dot-statetitle { background: #7ba7d4; }
-.dot-stat { background: #e05a2b; }
-.dot-embed { background: #aaa; }
 .dot-volleyball { background: #f59e0b; }
 .dot-photo { background: #4caf82; }
 
@@ -454,8 +452,6 @@ html, body {
         <option value="discussion">Discussion question</option>
         <option value="casebook">Casebook play</option>
         <option value="statetitle">State title</option>
-        <option value="stat">Stat / callout</option>
-        <option value="embed">Embed / Slido</option>
         <option value="volleyball">Volleyball rotation trainer</option>
         <option value="photo">Full photo</option>
       </select>
@@ -514,16 +510,6 @@ html, body {
       <input type="hidden" id="ep-rev-body">
       <input type="hidden" id="ep-rev-notelabel">
       <input type="hidden" id="ep-rev-note">
-    </div>
-
-    <!-- EMBED fields -->
-    <div class="ep-group" id="epg-embed">
-      <div class="ep-field"><label>Slide label <span style="opacity:.5;font-weight:400;">(shown in slide list)</span></label><input type="text" id="ep-emb-title" placeholder="e.g. Live Poll — Scenario 1"></div>
-      <div class="ep-field"><label>Header text <span style="opacity:.5;font-weight:400;">(top bar)</span></label><input type="text" id="ep-emb-header" placeholder="e.g. Cast Your Vote"></div>
-      <div class="ep-field">
-        <label>Embed HTML <span style="opacity:.5;font-weight:400;">(paste Slido iframe or any HTML)</span></label>
-        <textarea id="ep-emb-html" placeholder="&lt;iframe src=&quot;https://app.sli.do/...&quot; ...&gt;&lt;/iframe&gt;" style="height:120px;font-family:monospace;font-size:11px;"></textarea>
-      </div>
     </div>
 
     <!-- RULE CHANGE fields -->
@@ -614,13 +600,6 @@ html, body {
       <input type="hidden" id="ep-st2-body"><input type="hidden" id="ep-st2-side">
     </div>
 
-    <!-- STAT fields -->
-    <div class="ep-group" id="epg-stat">
-      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly.</div>
-      <input type="hidden" id="ep-st-title"><input type="hidden" id="ep-st-stat"><input type="hidden" id="ep-st-label">
-      <input type="hidden" id="ep-st-body"><input type="hidden" id="ep-st-source">
-    </div>
-
     <!-- VOLLEYBALL fields -->
     <div class="ep-group" id="epg-volleyball">
       <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Use the controls directly on the slide to set rotation, libero/setter, jersey numbers, and player positions. Drag players on the court to reposition them — changes save automatically, and stay in place when presenting.</div>
@@ -658,7 +637,7 @@ html, body {
 
 <div id="toast"></div>
 <div id="editor-saving">Saving...</div>
-<script src="/assets/renderer.js?v=5"></script>
+<script src="/assets/renderer.js?v=6"></script>
 <script src="/assets/volleyball-trainer.js?v=3"></script>
 <script>
 
@@ -844,23 +823,6 @@ function renderSlideContent(slide, container) {
     expl.dataset.field='revBody'; expl.dataset.placeholder='Explanation goes here...'; const _rbVal=d.revBody||slide.body||''; if(_rbVal){expl.textContent=_rbVal;}else{expl.textContent='Explanation goes here...';expl.dataset.isEmpty='1';expl.style.opacity='0.4';expl.style.fontStyle='italic';}
     s.append(darkHalf, eyebrow, ruling, rulPill, expl, noteFooter(sc, d.revNoteLabel, d.revNote, 'revNoteLabel', 'revNote'));
 
-  // ── EMBED / SLIDO ─────────────────────────────────────────────────────
-  } else if (slide.type === 'embed') {
-    s.style.background = NAVY;
-    const bar = topBar(sc, d.embHeader || slide.title || 'Live Poll', null);
-    const area = el('div',`position:absolute;left:0;right:0;top:${64*sc}px;bottom:0;display:flex;align-items:center;justify-content:center;`);
-    if (d.embHtml) {
-      const wrap = el('div',`width:100%;height:100%;`);
-      wrap.innerHTML = d.embHtml;
-      wrap.querySelectorAll('iframe').forEach(f=>{ f.style.width='100%'; f.style.height=`${h-64*sc}px`; f.style.border='none'; });
-      area.appendChild(wrap);
-    } else {
-      const ph = el('div',`text-align:center;color:rgba(255,255,255,0.3);font-size:${15*sc}px;line-height:2;`);
-      ph.innerHTML = 'Paste Slido or embed HTML in the editor';
-      area.appendChild(ph);
-    }
-    s.append(bar, area);
-
   // ── RULE CHANGE ───────────────────────────────────────────────────────
   } else if (slide.type === 'rulechange') {
     s.style.background = '#EFEFED';
@@ -879,7 +841,9 @@ function renderSlideContent(slide, container) {
     const rcImg = rcImageSrc[currentSlide];
     const textWidth = rcImg ? `${480*sc}px` : '100%';
     const ruleCardHdr = el('div',`padding:${10*sc}px ${16*sc}px ${8*sc}px;font-size:${10*sc}px;font-weight:700;letter-spacing:${1.5*sc}px;text-transform:uppercase;color:${GOLD};`);
-    ruleCardHdr.textContent = 'New Rule';
+    ruleCardHdr.dataset.field='rcNewLabel'; ruleCardHdr.dataset.placeholder='New Rule';
+    const _rclVal=d.rcNewLabel||'';
+    if(_rclVal){ruleCardHdr.textContent=_rclVal;}else{ruleCardHdr.textContent='New Rule';ruleCardHdr.dataset.isEmpty='1';ruleCardHdr.style.opacity='0.55';}
     const ruleCardBody = el('div',`padding:${14*sc}px ${18*sc}px;font-size:${19*sc}px;color:#111;line-height:1.65;white-space:pre-wrap;font-weight:500;`);
     ruleCardBody.dataset.field='rcNew'; ruleCardBody.dataset.placeholder='New rule text...';
     const _rcnVal=d.rcNew||'';
@@ -941,19 +905,17 @@ function renderSlideContent(slide, container) {
       [d.em3||'', d.em3d||'', 'em3', 'em3d', !!d.em3hide],
       [d.em4||'', d.em4d||'', 'em4', 'em4d', !!d.em4hide],
     ];
-    // Always show all 4 in editor (so they're editable); viewer only shows non-hidden
-    const visibleItems = allItems; // editor shows all
-    const filledCount = allItems.filter(([t,,,,hidden])=>t.trim()&&!hidden).length || 1;
-    const avail = h - 140*sc, itemH = Math.min(avail / Math.max(filledCount,1), 98*sc);
-    let rowIdx = 0;
+    // Always show all 4 in editor (so they're editable); viewer only shows non-hidden.
+    // Flex column instead of fixed per-row heights: rows size to their own content (so
+    // a longer detail line doesn't overlap the next row), and space-evenly redistributes
+    // the leftover vertical space when fewer items are filled in.
+    const itemsWrap = el('div',`position:absolute;left:${32*sc}px;right:${32*sc}px;top:${128*sc}px;bottom:${32*sc}px;display:flex;flex-direction:column;justify-content:space-evenly;gap:${14*sc}px;overflow:hidden;`);
+    itemsWrap.dataset.autofit = '1';
     allItems.forEach(([t1,t2,f1,f2,hidden],i)=>{
-      const top = 128*sc + rowIdx*Math.min(itemH, 90*sc);
-      if(top + 50*sc > h) return;
-      const row = el('div',`position:absolute;left:${32*sc}px;right:${32*sc}px;top:${top}px;display:flex;align-items:flex-start;gap:${20*sc}px;min-height:${40*sc}px;${hidden?'opacity:0.25;':''}`);
-      if (!hidden) rowIdx++;
+      const row = el('div',`display:flex;align-items:center;gap:${20*sc}px;flex-shrink:0;${hidden?'opacity:0.25;':''}`);
       const num = el('div',`width:${40*sc}px;height:${40*sc}px;border-radius:${6*sc}px;background:${GOLD};display:flex;align-items:center;justify-content:center;font-size:${18*sc}px;font-weight:800;color:#fff;flex-shrink:0;`);
       num.textContent=String(i+1);
-      const right2=el('div',`flex:1;`);
+      const right2=el('div',`flex:1;min-width:0;`);
       const rt=el('div',`font-size:${21*sc}px;font-weight:700;color:#fff;line-height:1.15;min-height:${24*sc}px;`);
       rt.dataset.field=f1; rt.dataset.placeholder='Click to add item...';
       if(t1){rt.textContent=t1;}else{rt.textContent='Click to add item...';rt.dataset.isEmpty='1';rt.style.opacity='0.3';rt.style.fontStyle='italic';}
@@ -963,9 +925,9 @@ function renderSlideContent(slide, container) {
       if(t2){rd.textContent=t2;}else{rd.textContent='Detail (optional)';rd.dataset.isEmpty='1';rd.style.opacity='0.2';rd.style.fontStyle='italic';}
       right2.appendChild(rd);
       row.append(num,right2);
-      s.appendChild(row);
+      itemsWrap.appendChild(row);
     });
-    s.append(seasonL,hd2);
+    s.append(seasonL,hd2,itemsWrap);
 
   // ── DISCUSSION ────────────────────────────────────────────────────────
   } else if (slide.type === 'discussion') {
@@ -1116,27 +1078,6 @@ function renderSlideContent(slide, container) {
     bodyEl.dataset.field='stBody'; bodyEl.dataset.placeholder='Subtitle or supporting text...'; const _stb=d.stBody||''; if(_stb){bodyEl.textContent=_stb;}else{bodyEl.textContent='Subtitle or supporting text...';bodyEl.dataset.isEmpty='1';bodyEl.style.opacity='0.3';bodyEl.style.fontStyle='italic';}
     s.append(sidePanel, eyeW, mainTitle, divBar, bodyEl);
 
-  // ── STAT ──────────────────────────────────────────────────────────────
-  } else if (slide.type === 'stat') {
-    s.style.background = NAVY;
-    // Decorative right panel
-    const rPanel=el('div',`position:absolute;right:0;top:0;bottom:0;width:${380*sc}px;background:rgba(242,101,34,0.07);border-left:${2*sc}px solid rgba(242,101,34,0.15);display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:${48*sc}px ${44*sc}px;overflow:hidden;`);
-    rPanel.dataset.autofit = '1';
-    const stBodyEl=el('div',`font-size:${17*sc}px;color:rgba(255,255,255,0.55);line-height:1.7;white-space:pre-wrap;`);
-    stBodyEl.dataset.field='stBody'; stBodyEl.dataset.placeholder='Supporting text...'; const _sbVal=d.stBody||''; if(_sbVal){stBodyEl.textContent=_sbVal;}else{stBodyEl.textContent='Supporting text...';stBodyEl.dataset.isEmpty='1';stBodyEl.style.opacity='0.35';stBodyEl.style.fontStyle='italic';}
-    if(d.stSource){const src=el('div',`font-size:${11*sc}px;color:rgba(255,255,255,0.22);font-style:italic;margin-top:${16*sc}px;`);src.textContent=d.stSource;rPanel.appendChild(src);}
-    rPanel.appendChild(stBodyEl);
-    // Left content
-    s.appendChild(el('div',`position:absolute;left:0;top:0;bottom:0;width:${10*sc}px;background:${GOLD};`));
-    const eyeL=el('div',`position:absolute;left:${32*sc}px;top:${36*sc}px;font-size:${11*sc}px;font-weight:700;color:${GOLD};letter-spacing:${3*sc}px;text-transform:uppercase;`);
-    eyeL.textContent=d.stTitle||slide.title||'Did You Know?';
-    s.appendChild(el('div',`position:absolute;left:${32*sc}px;top:${64*sc}px;width:${40*sc}px;height:${3*sc}px;background:${GOLD};border-radius:2px;`));
-    const bigN=el('div',`position:absolute;left:${28*sc}px;top:${80*sc}px;font-size:${130*sc}px;font-weight:900;color:#fff;line-height:0.88;letter-spacing:${-2*sc}px;right:${400*sc}px;overflow:hidden;`);
-    bigN.dataset.field='stStat'; bigN.textContent=d.stStat||'—';
-    const stLbl2=el('div',`position:absolute;left:${32*sc}px;bottom:${56*sc}px;right:${400*sc}px;font-size:${18*sc}px;color:${GOLD};font-weight:600;line-height:1.4;`);
-    stLbl2.dataset.field='stLabel'; stLbl2.dataset.placeholder='Stat description...'; const _slVal=d.stLabel||''; if(_slVal){stLbl2.textContent=_slVal;}else{stLbl2.textContent='Stat description...';stLbl2.dataset.isEmpty='1';stLbl2.style.opacity='0.35';stLbl2.style.fontStyle='italic';}
-    s.append(eyeL,bigN,stLbl2,rPanel);
-
   // ── VOLLEYBALL ROTATION TRAINER ─────────────────────────────────────────
   } else if (slide.type === 'volleyball') {
     s.style.background = '#0f172a';
@@ -1260,7 +1201,7 @@ function makeEditable(container, slide) {
         el.dataset.isEmpty = '';
         writeField(slide, field, el.innerText);
       }
-      const titleFields = ['title','vidTitle','revRuling','embHeader','rcHeading','emHeader','discQ','cbTitle','stTitle'];
+      const titleFields = ['title','vidTitle','revRuling','rcHeading','emHeader','discQ','cbTitle','stTitle'];
       if (titleFields.includes(field) && newVal) {
         slide.title = newVal;
         document.getElementById('tb-slide-title').textContent = newVal;
@@ -1304,6 +1245,7 @@ function buildFieldMap(slide) {
     add(d.rcHeading || slide.title, 'rcHeading');
     add(d.rcRule || '', 'rcRule');
     add(d.rcOld || '', 'rcOld');
+    add(d.rcNewLabel || 'New Rule', 'rcNewLabel');
     add(d.rcNew || '', 'rcNew');
     add(d.rcPenalty || '', 'rcPenalty');
     add(d.rcNote || '', 'rcNote');
@@ -1326,14 +1268,6 @@ function buildFieldMap(slide) {
     add(d.stTitle || slide.title, 'stTitle');
     add(d.stBody || '', 'stBody');
     add(d.stSideText || '', 'stSideText');
-  } else if (slide.type === 'stat') {
-    add(d.stTitle || slide.title, 'stTitle');
-    add(d.stStat || '\u2014', 'stStat');
-    add(d.stLabel || '', 'stLabel');
-    add(d.stBody || '', 'stBody');
-    add(d.stSource || '', 'stSource');
-  } else if (slide.type === 'embed') {
-    add(d.embHeader || slide.title, 'embHeader');
   }
   return map;
 }
@@ -1372,7 +1306,9 @@ function setView(wantVideo) {
 
 /* ── NAVIGATION ── */
 document.getElementById('tb-prev').addEventListener('click', () => {
-  if (showingVideo && slides[currentSlide].type === 'video') {
+  const slide0 = slides[currentSlide];
+  const showText0 = slide0.data ? slide0.data.vidShowText !== false : true;
+  if (showingVideo && slide0.type === 'video' && showText0) {
     setView(false);
   } else if (slides[currentSlide].type === 'casebook' && cbPhase === 1) {
     cbPhase = 0;
@@ -1563,7 +1499,7 @@ function renderEditorList() {
 function g(id) { return document.getElementById(id); }
 
 function showGroups(type) {
-  ['title','video','reveal','embed','rulechange','emphasis','discussion','casebook','statetitle','stat','volleyball','photo'].forEach(t => {
+  ['title','video','reveal','rulechange','emphasis','discussion','casebook','statetitle','volleyball','photo'].forEach(t => {
     const el = g('epg-' + t);
     if (el) el.style.display = t === type ? 'block' : 'none';
   });
@@ -1582,10 +1518,6 @@ function populateEditor() {
     g('ep-vid-video-first').checked = d.vidOrder !== 'situation';
     g('ep-vid-show-text').checked = d.vidShowText !== false;
     populateClipPicker(d.vidClipUrl || '');
-  } else if (s.type === 'embed') {
-    g('ep-emb-title').value = d.embTitle || s.title || '';
-    g('ep-emb-header').value = d.embHeader || s.title || '';
-    g('ep-emb-html').value = d.embHtml || '';
   } else if (s.type === 'discussion') {
     g('ep-disc-time').value = d.discTime || '';
   } else if (s.type === 'rulechange') {
@@ -1805,10 +1737,6 @@ g('ep-save').addEventListener('click', () => {
     data.vidOrder = g('ep-vid-video-first').checked ? 'video' : 'situation';
     data.vidShowText = g('ep-vid-show-text').checked;
     data.vidClipUrl = g('ep-vid-clip').value || '';
-  } else if (type === 'embed') {
-    data.embTitle = g('ep-emb-title').value;
-    data.embHeader = g('ep-emb-header').value;
-    data.embHtml = g('ep-emb-html').value;
   } else if (type === 'discussion') {
     data.discTime = g('ep-disc-time').value;
   } else if (type === 'casebook') {
@@ -1835,8 +1763,6 @@ g('ep-add').addEventListener('click', () => {
     discussion: {type:'discussion', title:'Discussion', body:'', rule:'', data:{}},
     casebook: {type:'casebook', title:'Casebook Play', body:'', rule:'', data:{}},
     statetitle: {type:'statetitle', title:'State Title', body:'', rule:'', data:{stEyebrow:'IHSA · Boys Volleyball', stTitle:'State Title'}},
-    stat: {type:'stat', title:'Did You Know?', body:'', rule:'', data:{stStat:'0', stLabel:''}},
-    embed: {type:'embed', title:'Live Poll', body:'', rule:'', data:{embTitle:'Live Poll', embHeader:'Cast Your Vote', embHtml:''}},
     volleyball: {type:'volleyball', title:'Rotation & Overlap Trainer', body:'', rule:'', data:{}},
     photo: {type:'photo', title:'Photo', body:'', rule:'', data:{photoFit:'cover'}},
   };
