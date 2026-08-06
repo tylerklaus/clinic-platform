@@ -729,6 +729,7 @@ app.post('/api/quizzes/:slug/end', requireEditor, (req, res) => {
 
 // Public live state — polled by the voter page. Hides vote counts and the correct
 // answer until the host reveals them; optionally echoes back the caller's own vote.
+// video_url is not sensitive (unlike correct_index) so it's always included when present.
 app.get('/api/quizzes/:slug/live', (req, res) => {
   const q = db.prepare('SELECT * FROM quizzes WHERE slug=?').get(req.params.slug);
   if (!q) return res.status(404).json({ error: 'Not found' });
@@ -749,7 +750,8 @@ app.get('/api/quizzes/:slug/live', (req, res) => {
     position: position + 1,
     total,
     revealed: !!q.results_revealed,
-    hasCorrectAnswer: question.correct_index !== null
+    hasCorrectAnswer: question.correct_index !== null,
+    video_url: question.video_url || null
   };
   if (req.query.voterId) {
     const mine = db.prepare('SELECT option_index FROM quiz_votes WHERE question_id=? AND voter_id=?')

@@ -19,21 +19,23 @@ header h1{font-size:15px;font-weight:700;color:#fff;flex:1;overflow:hidden;text-
 .btn-ghost{background:rgba(255,255,255,0.09);color:var(--text);border:1px solid var(--border)}
 .btn:hover{opacity:0.85}
 .btn:disabled{opacity:0.35;cursor:default;}
-#stage{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:32px;}
+#stage{flex:1;min-height:0;position:relative;display:flex;flex-direction:column;align-items:center;overflow-y:auto;padding:32px;}
 
 /* Lobby */
-#lobby{display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center;}
+#lobby{margin:auto;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center;}
 #lobby h2{font-size:26px;font-weight:800;color:#fff;}
 #lobby p{color:var(--text2);font-size:14px;max-width:420px;}
 #qr-big{background:#fff;padding:20px;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.4);}
 #qr-big svg{display:block;width:260px;height:260px;}
 #vote-url{font-family:monospace;font-size:15px;color:var(--gold);background:rgba(242,101,34,0.1);padding:8px 16px;border-radius:8px;}
 
-/* Live */
-#live{width:100%;max-width:900px;display:none;flex-direction:column;gap:20px;}
+/* Live — margin:auto (not align-items:center on #stage) so short content still centers
+   vertically but tall content (e.g. a question with a video) degrades to top-aligned
+   and scrollable instead of getting clipped top-and-bottom by the parent's overflow. */
+#live{width:100%;max-width:900px;display:none;flex-direction:column;gap:16px;margin:auto 0;}
 #progress{font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;text-align:center;}
 #q-text{font-size:30px;font-weight:800;color:#fff;text-align:center;line-height:1.25;padding:0 20px;}
-#q-video{display:none;max-width:100%;max-height:320px;border-radius:10px;background:#000;margin:0 auto;}
+#q-video{display:none;max-width:100%;max-height:280px;border-radius:10px;background:#000;margin:0 auto;flex-shrink:0;}
 #opt-list{display:flex;flex-direction:column;gap:12px;}
 .opt-bar{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;overflow:hidden;}
 .opt-bar-fill{position:absolute;top:0;left:0;bottom:0;background:rgba(242,101,34,0.22);transition:width 0.4s ease;z-index:0;}
@@ -45,8 +47,11 @@ header h1{font-size:15px;font-weight:700;color:#fff;flex:1;overflow:hidden;text-
 .opt-bar.correct .opt-bar-count{color:#6fd19a;}
 .correct-tag{font-size:10px;font-weight:800;color:#6fd19a;background:rgba(76,175,130,0.15);padding:2px 8px;border-radius:10px;text-transform:uppercase;}
 #total-votes{text-align:center;font-size:12px;color:var(--text2);}
+/* Controls live in their own fixed footer bar, outside the scrollable #stage, so
+   Next/Reveal/End Session are always reachable no matter how tall the question content is. */
+#controls-bar{display:none;flex-shrink:0;background:var(--navy);border-top:1px solid var(--border);padding:12px 24px;}
 #controls{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;}
-#mini-qr{position:fixed;bottom:16px;right:16px;background:#fff;padding:8px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.4);display:none;}
+#mini-qr{position:fixed;bottom:88px;right:16px;background:#fff;padding:8px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.4);display:none;}
 #mini-qr svg{display:block;width:84px;height:84px;}
 #mini-qr .cap{font-size:9px;color:#333;text-align:center;font-weight:700;margin-top:3px;}
 </style>
@@ -73,13 +78,15 @@ header h1{font-size:15px;font-weight:700;color:#fff;flex:1;overflow:hidden;text-
       <video id="q-video" controls></video>
       <div id="opt-list"></div>
       <div id="total-votes"></div>
-      <div id="controls">
-        <button class="btn btn-ghost" id="btn-prev"><i class="ti ti-chevron-left"></i> Prev</button>
-        <button class="btn btn-primary" id="btn-reveal"></button>
-        <button class="btn btn-primary" id="btn-reveal-answer" style="background:#4caf82;color:#0f172a;display:none;"></button>
-        <button class="btn btn-ghost" id="btn-next">Next <i class="ti ti-chevron-right"></i></button>
-        <button class="btn btn-ghost" id="btn-end" style="margin-left:20px;"><i class="ti ti-square-x"></i> End Session</button>
-      </div>
+    </div>
+  </div>
+  <div id="controls-bar">
+    <div id="controls">
+      <button class="btn btn-ghost" id="btn-prev"><i class="ti ti-chevron-left"></i> Prev</button>
+      <button class="btn btn-primary" id="btn-reveal"></button>
+      <button class="btn btn-primary" id="btn-reveal-answer" style="background:#4caf82;color:#0f172a;display:none;"></button>
+      <button class="btn btn-ghost" id="btn-next">Next <i class="ti ti-chevron-right"></i></button>
+      <button class="btn btn-ghost" id="btn-end" style="margin-left:20px;"><i class="ti ti-square-x"></i> End Session</button>
     </div>
   </div>
   <div id="mini-qr"><div id="mini-qr-code"></div><div class="cap">SCAN TO VOTE</div></div>
@@ -157,6 +164,7 @@ function renderState(state) {
   const isLive = !!state.current;
   document.getElementById('lobby').style.display = isLive ? 'none' : 'flex';
   document.getElementById('live').style.display = isLive ? 'flex' : 'none';
+  document.getElementById('controls-bar').style.display = isLive ? 'block' : 'none';
   document.getElementById('mini-qr').style.display = isLive ? 'block' : 'none';
 
   if (!isLive) { updateVideo(null); return; }
