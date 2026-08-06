@@ -163,16 +163,23 @@ html,body{height:100%;background:#000;color:#fff;font-family:"Segoe UI",system-u
   <div id="sp-list"></div>
 </div>
 
-<script src="/assets/renderer.js?v=6"></script>
+<script src="/assets/renderer.js?v=7"></script>
 <script src="/assets/volleyball-trainer.js?v=3"></script>
 <script>
-const slug=location.pathname.split("/p/")[1];
+let slug=location.pathname.split("/p/")[1];
 let slides=[],currentSlide=0,showingVideo=true,looping=false,cbPhase=0;
 let titleLogoSrc=null;
 const video=document.getElementById("video-el");
 
+// Set (not called directly) whenever a password prompt is shown mid-flow, so
+// submitViewerPw knows what to resume once unlocked — the plain first-load case
+// resumes init(), but a jump into a password-protected target deck needs to resume
+// that specific jump instead.
+let afterUnlock=null;
+
 function showPasswordPrompt(){
-  // Get presentation title to show in modal
+  // Get presentation title to show in modal — slug already points at whichever
+  // deck (original or jump target) is currently pending unlock.
   fetch('/api/presentations/'+slug)
     .then(r=>r.ok?r.json():null)
     .then(meta=>{
@@ -192,7 +199,9 @@ async function submitViewerPw(){
   const d=await r.json();
   if(d.ok){
     document.getElementById('pw-overlay').style.display='none';
-    init(); // retry now that session has unlocked slug
+    const retry=afterUnlock||init;
+    afterUnlock=null;
+    retry();
   } else {
     document.getElementById('pw-err').textContent='Incorrect password';
     document.getElementById('pw-input').value='';
@@ -200,27 +209,82 @@ async function submitViewerPw(){
   }
 }
 
-async function init(){
-  const[sr,mr]=await Promise.all([
-    fetch("/api/presentations/"+slug+"/slides"),
-    fetch("/api/presentations/"+slug)
-  ]);
-  if(sr.status===401){
-    showPasswordPrompt();
+// Fetches one presentation's slides + metadata and swaps them into the globals.
+// Leaves `slug` pointing at newSlug on success OR on a 401 (so the password prompt
+// operates on the right deck); rolls `slug` back on any other failure so global state
+// never points at a dead/missing presentation.
+async function loadDeck(newSlug, startIndex){
+  const prevSlug=slug;
+  slug=newSlug;
+  try{
+    const[sr,mr]=await Promise.all([
+      fetch("/api/presentations/"+slug+"/slides"),
+      fetch("/api/presentations/"+slug)
+    ]);
+    if(sr.status===401) return {ok:false,status:401};
+    if(!sr.ok){ slug=prevSlug; return {ok:false,status:sr.status}; }
+    slides=await sr.json();
+    const meta=await mr.json();
+    document.title=meta.title+" - Clinic";
+    currentSlide=Math.max(0,Math.min(startIndex||0,slides.length-1));
+    return {ok:true};
+  }catch(e){
+    slug=prevSlug;
+    return {ok:false,status:0};
+  }
+}
+
+// Shared entry point for both the initial page load and a mid-presentation jump.
+// opts.topLevel controls how a failure is displayed; opts.guard threads a chained-jump
+// counter through to landOnCurrentSlide.
+async function enterDeck(newSlug, startIndex, opts){
+  opts=opts||{};
+  const res=await loadDeck(newSlug, startIndex);
+  if(!res.ok){
+    if(res.status===401){
+      afterUnlock=()=>enterDeck(newSlug, startIndex, opts);
+      showPasswordPrompt();
+      return;
+    }
+    if(opts.topLevel){
+      document.body.innerHTML='<div style="color:#fff;padding:40px;font-size:20px;">Presentation not found</div>';
+    } else {
+      alert('Could not jump to that presentation — it may have been deleted, or access may be restricted.');
+    }
     return;
   }
-  if(!sr.ok){
-    document.body.innerHTML='<div style="color:#fff;padding:40px;font-size:20px;">Presentation not found</div>';
-    return;
-  }
-  slides=await sr.json();
-  const meta=await mr.json();
-  document.title=meta.title+" - Clinic";
-  showSlide(0);
-  setView(slides[0]&&slides[0].type==="video");
+  landOnCurrentSlide(opts.guard||0);
   loadClips();
-  // Preload first 2 video clips on launch
-  setTimeout(()=>preloadAhead(0), 1500);
+  if(opts.topLevel) setTimeout(()=>preloadAhead(0), 1500);
+}
+
+// Renders whatever slide currentSlide now points at — unless it's a jump slide, in
+// which case it's never shown at all: presenting continues straight into the target
+// deck. `guard` caps how many jump slides can chain in a row (A jumps to B jumps to
+// C...) so a jump loop (A -> B -> A) can't hang the page.
+function landOnCurrentSlide(guard){
+  const s=slides[currentSlide];
+  // Checked before showSlide() so the toolbar keeps showing the slide the presenter
+  // was just on — instead of flashing "Jump → X" — while the target deck loads.
+  if(s&&s.type==="jump"){
+    performJump(s.data&&s.data.jumpTargetSlug, (s.data&&s.data.jumpTargetIndex)||0, guard||0);
+    return;
+  }
+  showSlide(currentSlide);
+  const order=(s&&s.data&&s.data.vidOrder)||"video";
+  setView(!!(s&&s.type==="video"&&order==="video"));
+  preloadAhead(currentSlide+1, 2);
+}
+
+function performJump(targetSlug, targetIndex, guard){
+  guard=(guard||0)+1;
+  if(!targetSlug){ console.error('Jump slide has no target presentation set'); return; }
+  if(guard>8){ console.error('Jump chain aborted — too many chained jump slides'); return; }
+  return enterDeck(targetSlug, targetIndex, {guard});
+}
+
+async function init(){
+  await enterDeck(slug, 0, {topLevel:true});
 }
 
 // Preload video clips for the next N slides ahead
@@ -476,12 +540,7 @@ function advanceNext(){
   if(slide.type==="casebook"&&cbPhase===0){cbPhase=1;setView(false);return;}
   if(currentSlide<slides.length-1){
     currentSlide++;cbPhase=0;
-    showSlide(currentSlide);
-    const s=slides[currentSlide];
-    const nextOrder=(s&&s.data&&s.data.vidOrder)||"video";
-    if(s&&s.type==="video"){setView(nextOrder==="video");}
-    else{setView(false);}
-    preloadAhead(currentSlide+1, 2);
+    landOnCurrentSlide(0);
   }
 }
 
@@ -520,12 +579,12 @@ const TYPE_LABELS = {
   title:'Title', video:'Scenario', reveal:'Answer Reveal', rulechange:'Rule Change',
   emphasis:'Points of Emphasis', discussion:'Discussion',
   casebook:'Casebook', statetitle:'State Title',
-  volleyball:'Volleyball Trainer', photo:'Photo'
+  volleyball:'Volleyball Trainer', photo:'Photo', jump:'Jump'
 };
 const TYPE_COLORS = {
   title:'#666', video:'#F26522', reveal:'#4caf82', rulechange:'#e05a2b',
   emphasis:'#5b9bd5', discussion:'#e8b84b',
-  casebook:'#4caf82', statetitle:'#7ba7d4',
+  casebook:'#4caf82', statetitle:'#7ba7d4', jump:'#8b5cf6',
   volleyball:'#f59e0b', photo:'#4caf82'
 };
 
@@ -549,9 +608,8 @@ function renderSlidePanel() {
     item.append(dot, info);
     item.addEventListener("click", function() {
       currentSlide = i; cbPhase = 0;
-      showSlide(i);
-      setView(sl.type === 'video');
       document.getElementById("slide-panel").classList.remove("open");
+      landOnCurrentSlide(0);
     });
     item.addEventListener("mouseover", function() { if(i!==currentSlide) this.style.background='rgba(255,255,255,0.06)'; });
     item.addEventListener("mouseout",  function() { if(i!==currentSlide) this.style.background=''; });

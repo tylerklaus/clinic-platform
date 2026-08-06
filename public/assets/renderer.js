@@ -417,6 +417,22 @@ function renderSlideContent(slide, container) {
       ph.appendChild(txt);
       s.appendChild(ph);
     }
+
+  // ── JUMP TO PRESENTATION ─────────────────────────────────────────────
+  // Not meant to be seen live — the viewer intercepts this type before ever
+  // rendering it and jumps straight to the target deck. This is a fallback
+  // in case it's ever reached anyway (e.g. manual reordering edge cases).
+  } else if (slide.type === 'jump') {
+    s.style.background = NAVY;
+    const wrap = el('div','position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:40px;');
+    const icon = el('div',`font-size:${56*sc}px;color:${GOLD};line-height:1;`);
+    icon.textContent = '⇥';
+    const eyebrow2 = el('div',`font-size:${12*sc}px;font-weight:700;color:${GOLD};letter-spacing:${3*sc}px;text-transform:uppercase;`);
+    eyebrow2.textContent = 'Jump to another presentation';
+    const targetTitle = el('div',`font-size:${28*sc}px;font-weight:800;color:#fff;`);
+    targetTitle.textContent = d.jumpTargetTitle || 'No target selected';
+    wrap.append(icon, eyebrow2, targetTitle);
+    s.appendChild(wrap);
   }
 
   container.appendChild(s);

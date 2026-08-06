@@ -333,6 +333,7 @@ html, body {
 .dot-statetitle { background: #7ba7d4; }
 .dot-volleyball { background: #f59e0b; }
 .dot-photo { background: #4caf82; }
+.dot-jump { background: #8b5cf6; }
 
 #ep-footer { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -454,6 +455,7 @@ html, body {
         <option value="statetitle">State title</option>
         <option value="volleyball">Volleyball rotation trainer</option>
         <option value="photo">Full photo</option>
+        <option value="jump">Jump to another presentation</option>
       </select>
     </div>
 
@@ -628,6 +630,23 @@ html, body {
       </div>
     </div>
 
+    <!-- JUMP fields -->
+    <div class="ep-group" id="epg-jump">
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">This slide never appears during presenting — the moment it's reached, the presentation instantly continues in the target deck below.</div>
+      <div class="ep-field">
+        <label>Jump to presentation</label>
+        <select id="ep-jump-target" style="width:100%;">
+          <option value="">— select a presentation —</option>
+        </select>
+      </div>
+      <div class="ep-field">
+        <label>Starting slide <span style="opacity:.5;font-weight:400;">(where to land in that deck)</span></label>
+        <select id="ep-jump-slide" style="width:100%;" disabled>
+          <option value="0">Slide 1</option>
+        </select>
+      </div>
+    </div>
+
     <div id="ep-footer">
     <button class="tb-btn primary" id="ep-save"><i class="ti ti-check"></i> Save</button>
     <button class="tb-btn" id="ep-add"><i class="ti ti-plus"></i> Add slide</button>
@@ -637,7 +656,7 @@ html, body {
 
 <div id="toast"></div>
 <div id="editor-saving">Saving...</div>
-<script src="/assets/renderer.js?v=6"></script>
+<script src="/assets/renderer.js?v=7"></script>
 <script src="/assets/volleyball-trainer.js?v=3"></script>
 <script>
 
@@ -1103,6 +1122,25 @@ function renderSlideContent(slide, container) {
       ph.appendChild(txt);
       s.appendChild(ph);
     }
+
+  // ── JUMP TO PRESENTATION ─────────────────────────────────────────────
+  } else if (slide.type === 'jump') {
+    s.style.background = NAVY;
+    const wrap = el('div','position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:40px;');
+    const icon = el('div',`font-size:${56*sc}px;color:${GOLD};line-height:1;`);
+    icon.textContent = '⇥';
+    const eyebrow2 = el('div',`font-size:${12*sc}px;font-weight:700;color:${GOLD};letter-spacing:${3*sc}px;text-transform:uppercase;`);
+    eyebrow2.textContent = 'Jump to another presentation';
+    const targetTitle = el('div',`font-size:${28*sc}px;font-weight:800;color:#fff;`);
+    targetTitle.textContent = d.jumpTargetTitle || 'No target selected yet';
+    const sub = el('div',`font-size:${14*sc}px;color:rgba(255,255,255,0.4);`);
+    sub.textContent = d.jumpTargetSlug
+      ? ('Starts at: ' + (d.jumpTargetSlideTitle || ('Slide ' + ((d.jumpTargetIndex||0)+1))))
+      : 'Pick a presentation in the panel on the right';
+    const note = el('div',`font-size:${12*sc}px;color:rgba(255,255,255,0.25);font-style:italic;margin-top:${16*sc}px;max-width:${420*sc}px;`);
+    note.textContent = "This slide is only visible here in the editor — while presenting, reaching it jumps instantly and is never shown on screen.";
+    wrap.append(icon, eyebrow2, targetTitle, sub, note);
+    s.appendChild(wrap);
   }
 
   container.appendChild(s);
@@ -1499,7 +1537,7 @@ function renderEditorList() {
 function g(id) { return document.getElementById(id); }
 
 function showGroups(type) {
-  ['title','video','reveal','rulechange','emphasis','discussion','casebook','statetitle','volleyball','photo'].forEach(t => {
+  ['title','video','reveal','rulechange','emphasis','discussion','casebook','statetitle','volleyball','photo','jump'].forEach(t => {
     const el = g('epg-' + t);
     if (el) el.style.display = t === type ? 'block' : 'none';
   });
@@ -1536,6 +1574,8 @@ function populateEditor() {
     if (s.data && s.data.photoImage) photoImageSrc[currentSlide] = s.data.photoImage;
     updatePhotoImgUI();
     g('ep-photo-fit').value = d.photoFit || 'cover';
+  } else if (s.type === 'jump') {
+    populateJumpPickers(d.jumpTargetSlug || '', d.jumpTargetIndex || 0);
   }
   // Sync step-reveal checkbox for emphasis / discussion
   const revealTypes = { emphasis: 'ep-step-reveal-em', discussion: 'ep-step-reveal-disc' };
@@ -1743,9 +1783,19 @@ g('ep-save').addEventListener('click', () => {
     data.cbCite = g('ep-cb-cite').value;
   } else if (type === 'rulechange') {
     data.rcRule = g('ep-rc-rule').value;
+  } else if (type === 'jump') {
+    const targetSel = g('ep-jump-target');
+    const targetOpt = targetSel.selectedOptions[0];
+    const slideSel = g('ep-jump-slide');
+    const slideOpt = slideSel.selectedOptions[0];
+    data.jumpTargetSlug = targetSel.value || '';
+    data.jumpTargetTitle = (data.jumpTargetSlug && targetOpt) ? targetOpt.textContent : '';
+    data.jumpTargetIndex = data.jumpTargetSlug ? parseInt(slideSel.value || '0', 10) : 0;
+    data.jumpTargetSlideTitle = (data.jumpTargetSlug && slideOpt) ? slideOpt.textContent : '';
   }
 
-  const title = slide.title || type;
+  let title = slide.title || type;
+  if (type === 'jump') title = data.jumpTargetSlug ? ('Jump → ' + data.jumpTargetTitle) : 'Jump to Presentation';
   slides[currentSlide] = { type, title, body: slide.body || '', rule: slide.rule || '', data };
   saveSlides();
   showSlide(currentSlide);
@@ -1765,6 +1815,7 @@ g('ep-add').addEventListener('click', () => {
     statetitle: {type:'statetitle', title:'State Title', body:'', rule:'', data:{stEyebrow:'IHSA · Boys Volleyball', stTitle:'State Title'}},
     volleyball: {type:'volleyball', title:'Rotation & Overlap Trainer', body:'', rule:'', data:{}},
     photo: {type:'photo', title:'Photo', body:'', rule:'', data:{photoFit:'cover'}},
+    jump: {type:'jump', title:'Jump to Presentation', body:'', rule:'', data:{jumpTargetSlug:'', jumpTargetIndex:0}},
   };
   const newSlide = JSON.parse(JSON.stringify(defaults[type] || defaults.video));
   slides.splice(currentSlide+1, 0, newSlide);
@@ -1824,6 +1875,52 @@ async function populateClipPicker(selectedUrl) {
     });
   } catch(e) { /* no clips */ }
 }
+
+// Cached across calls so re-opening a jump slide doesn't refetch the presentation list.
+let availablePresentations = null;
+async function loadAvailablePresentations() {
+  if (availablePresentations) return availablePresentations;
+  try {
+    const r = await fetch('/api/presentations');
+    availablePresentations = (await r.json()).filter(p => p.slug !== slug);
+  } catch (e) { availablePresentations = []; }
+  return availablePresentations;
+}
+
+async function populateJumpTargetSlides(targetSlug, selectedIndex) {
+  const sel = g('ep-jump-slide');
+  sel.innerHTML = '';
+  if (!targetSlug) {
+    sel.appendChild(new Option('Slide 1', '0'));
+    sel.disabled = true;
+    return;
+  }
+  try {
+    const r = await fetch('/api/presentations/' + targetSlug + '/slides');
+    const targetSlides = await r.json();
+    targetSlides.forEach((sl, i) => {
+      sel.appendChild(new Option((i + 1) + '. ' + (sl.title || sl.type), String(i), false, i === selectedIndex));
+    });
+    sel.disabled = false;
+  } catch (e) {
+    sel.appendChild(new Option('Slide 1', '0'));
+    sel.disabled = true;
+  }
+}
+
+async function populateJumpPickers(selectedSlug, selectedIndex) {
+  const targetSel = g('ep-jump-target');
+  const presentations = await loadAvailablePresentations();
+  targetSel.innerHTML = '<option value="">— select a presentation —</option>';
+  presentations.forEach(p => {
+    targetSel.appendChild(new Option(p.title, p.slug, false, p.slug === selectedSlug));
+  });
+  await populateJumpTargetSlides(selectedSlug, selectedIndex);
+}
+
+document.getElementById('ep-jump-target').addEventListener('change', () => {
+  populateJumpTargetSlides(g('ep-jump-target').value, 0);
+});
 
 async function loadFromServer() {
   try {
