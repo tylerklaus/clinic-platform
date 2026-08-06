@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edit Quiz — Clinic</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#1B1B2F;--gold:#F26522;--bg:#0f0f1a;--surface:#1e1e32;--surface2:#252540;--border:rgba(255,255,255,0.08);--text:#f0f0f0;--text2:rgba(255,255,255,0.5);--danger:#e05050}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:80px}
+header{background:var(--navy);border-bottom:3px solid var(--gold);padding:0 24px;height:60px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+header a.back{color:rgba(255,255,255,0.6);text-decoration:none;font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px;flex-shrink:0;}
+header a.back:hover{color:#fff}
+#quiz-title{flex:1;background:transparent;border:none;color:#fff;font-size:16px;font-weight:700;outline:none;padding:6px 8px;border-radius:6px;min-width:0;}
+#quiz-title:hover,#quiz-title:focus{background:rgba(255,255,255,0.08);}
+.btn{padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px;transition:opacity 0.15s;text-decoration:none;white-space:nowrap;}
+.btn-primary{background:var(--gold);color:var(--navy)}
+.btn-ghost{background:rgba(255,255,255,0.07);color:var(--text);border:1px solid var(--border)}
+.btn-danger{background:rgba(224,80,80,0.15);color:var(--danger);border:1px solid rgba(224,80,80,0.3)}
+.btn:hover{opacity:0.85}
+.btn:disabled{opacity:0.4;cursor:default}
+main{max-width:760px;margin:0 auto;padding:28px 24px;}
+#save-indicator{font-size:12px;color:var(--text2);min-width:70px;text-align:right;}
+.q-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:18px;}
+.q-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;}
+.q-num{width:28px;height:28px;border-radius:6px;background:var(--gold);color:var(--navy);font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;}
+.q-text{flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:#fff;font-size:15px;font-family:inherit;resize:vertical;min-height:44px;line-height:1.4;}
+.q-text:focus{outline:none;border-color:var(--gold);}
+.q-actions{display:flex;flex-direction:column;gap:4px;flex-shrink:0;}
+.icon-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;}
+.icon-btn:hover{color:#fff;border-color:rgba(255,255,255,0.25);}
+.icon-btn.danger:hover{color:var(--danger);border-color:rgba(224,80,80,0.4);}
+.opt-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.opt-row input[type=radio]{width:17px;height:17px;accent-color:var(--gold);flex-shrink:0;cursor:pointer;}
+.opt-text{flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:#fff;font-size:13.5px;font-family:inherit;}
+.opt-text:focus{outline:none;border-color:var(--gold);}
+.opt-remove{width:24px;height:24px;border-radius:6px;border:none;background:transparent;color:var(--text2);cursor:pointer;font-size:15px;flex-shrink:0;}
+.opt-remove:hover{color:var(--danger);}
+.q-footer{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.poll-toggle{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);cursor:pointer;}
+.poll-toggle input{width:15px;height:15px;accent-color:var(--gold);cursor:pointer;}
+.add-opt-btn{font-size:12px;color:var(--gold);background:none;border:none;cursor:pointer;padding:4px 0;font-weight:600;}
+.empty{text-align:center;padding:60px 20px;color:var(--text2);}
+.empty h3{font-size:20px;color:#fff;margin-bottom:8px;}
+.hint{font-size:11px;color:var(--text2);margin-bottom:20px;line-height:1.5;}
+</style>
+</head>
+<body>
+<header>
+  <a href="/" class="back"><i class="ti ti-chevron-left"></i> Dashboard</a>
+  <input id="quiz-title" placeholder="Quiz title">
+  <span id="save-indicator"></span>
+  <a href="#" id="present-link" class="btn btn-ghost"><i class="ti ti-presentation"></i> Present</a>
+</header>
+<main>
+  <p class="hint">Each question needs at least 2 options. Mark one option as correct for a rules quiz, or leave it as an opinion poll — you can mix both within the same quiz.</p>
+  <div id="questions"></div>
+  <div class="empty" id="empty-state" style="display:none;">
+    <h3>No questions yet</h3>
+    <p>Add your first question to get started.</p>
+  </div>
+  <button class="btn btn-primary" id="btn-add-question" style="width:100%;justify-content:center;padding:14px;"><i class="ti ti-plus"></i> Add Question</button>
+</main>
+<script>
+const slug = location.pathname.split('/quiz/')[1].split('/')[0];
+document.getElementById('present-link').href = '/quiz/' + slug + '/present';
+let questions = [];
+let saveTimer = null;
+
+function newOption() { return ''; }
+function newQuestion() {
+  return { question_text: '', options: ['', ''], correct_index: null };
+}
+
+async function load() {
+  const [qr, qsr] = await Promise.all([
+    fetch('/api/quizzes/' + slug),
+    fetch('/api/quizzes/' + slug + '/questions')
+  ]);
+  if (!qr.ok) { alert('Quiz not found'); location.href = '/'; return; }
+  const quiz = await qr.json();
+  questions = await qsr.json();
+  document.title = 'Edit: ' + quiz.title + ' — Clinic';
+  document.getElementById('quiz-title').value = quiz.title;
+  render();
+}
+
+function render() {
+  const container = document.getElementById('questions');
+  container.innerHTML = '';
+  document.getElementById('empty-state').style.display = questions.length ? 'none' : 'block';
+
+  questions.forEach((q, qi) => {
+    const card = document.createElement('div');
+    card.className = 'q-card';
+
+    const head = document.createElement('div');
+    head.className = 'q-head';
+    const num = document.createElement('div'); num.className = 'q-num'; num.textContent = qi + 1;
+    const text = document.createElement('textarea');
+    text.className = 'q-text'; text.placeholder = 'Type the question...';
+    text.value = q.question_text;
+    text.addEventListener('input', () => { q.question_text = text.value; scheduleSave(); });
+
+    const actions = document.createElement('div'); actions.className = 'q-actions';
+    const upBtn = document.createElement('button'); upBtn.className = 'icon-btn'; upBtn.innerHTML = '<i class="ti ti-arrow-up"></i>';
+    upBtn.title = 'Move up'; upBtn.disabled = qi === 0;
+    upBtn.addEventListener('click', () => { if (qi > 0) { [questions[qi-1], questions[qi]] = [questions[qi], questions[qi-1]]; render(); scheduleSave(); } });
+    const downBtn = document.createElement('button'); downBtn.className = 'icon-btn'; downBtn.innerHTML = '<i class="ti ti-arrow-down"></i>';
+    downBtn.title = 'Move down'; downBtn.disabled = qi === questions.length - 1;
+    downBtn.addEventListener('click', () => { if (qi < questions.length - 1) { [questions[qi], questions[qi+1]] = [questions[qi+1], questions[qi]]; render(); scheduleSave(); } });
+    const delBtn = document.createElement('button'); delBtn.className = 'icon-btn danger'; delBtn.innerHTML = '<i class="ti ti-trash"></i>';
+    delBtn.title = 'Delete question';
+    delBtn.addEventListener('click', () => {
+      if (!confirm('Delete this question?')) return;
+      questions.splice(qi, 1); render(); scheduleSave();
+    });
+    actions.append(upBtn, downBtn, delBtn);
+    head.append(num, text, actions);
+
+    const optsWrap = document.createElement('div');
+    optsWrap.style.marginLeft = '38px';
+    q.options.forEach((opt, oi) => {
+      const row = document.createElement('div'); row.className = 'opt-row';
+      const radio = document.createElement('input');
+      radio.type = 'radio'; radio.name = 'correct-' + qi;
+      radio.checked = q.correct_index === oi;
+      radio.disabled = q.correct_index === null;
+      radio.title = 'Mark as correct answer';
+      radio.addEventListener('change', () => { q.correct_index = oi; scheduleSave(); });
+      const optInput = document.createElement('input');
+      optInput.type = 'text'; optInput.className = 'opt-text';
+      optInput.placeholder = 'Option ' + (oi + 1);
+      optInput.value = opt;
+      optInput.addEventListener('input', () => { q.options[oi] = optInput.value; scheduleSave(); });
+      const remove = document.createElement('button');
+      remove.className = 'opt-remove'; remove.innerHTML = '&times;'; remove.title = 'Remove option';
+      remove.disabled = q.options.length <= 2;
+      remove.addEventListener('click', () => {
+        q.options.splice(oi, 1);
+        if (q.correct_index !== null) {
+          if (q.correct_index === oi) q.correct_index = null;
+          else if (q.correct_index > oi) q.correct_index--;
+        }
+        render(); scheduleSave();
+      });
+      row.append(radio, optInput, remove);
+      optsWrap.appendChild(row);
+    });
+
+    const addOptBtn = document.createElement('button');
+    addOptBtn.className = 'add-opt-btn'; addOptBtn.textContent = '+ Add option';
+    addOptBtn.addEventListener('click', () => { q.options.push(''); render(); scheduleSave(); });
+    optsWrap.appendChild(addOptBtn);
+
+    const footer = document.createElement('div'); footer.className = 'q-footer';
+    const pollLabel = document.createElement('label'); pollLabel.className = 'poll-toggle';
+    const pollCheck = document.createElement('input'); pollCheck.type = 'checkbox';
+    pollCheck.checked = q.correct_index === null;
+    pollCheck.addEventListener('change', () => {
+      q.correct_index = pollCheck.checked ? null : 0;
+      render(); scheduleSave();
+    });
+    pollLabel.append(pollCheck, document.createTextNode('Opinion poll (no correct answer)'));
+    footer.appendChild(pollLabel);
+    optsWrap.appendChild(footer);
+
+    card.append(head, optsWrap);
+    container.appendChild(card);
+  });
+}
+
+function scheduleSave() {
+  const indicator = document.getElementById('save-indicator');
+  indicator.textContent = 'Saving...';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      await fetch('/api/quizzes/' + slug + '/questions', {
+        method: 'PUT', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ questions })
+      });
+      indicator.textContent = 'Saved';
+      setTimeout(() => { if (indicator.textContent === 'Saved') indicator.textContent = ''; }, 1500);
+    } catch (e) {
+      indicator.textContent = 'Save failed';
+    }
+  }, 700);
+}
+
+document.getElementById('btn-add-question').addEventListener('click', () => {
+  questions.push(newQuestion());
+  render();
+  scheduleSave();
+});
+
+let titleSaveTimer = null;
+document.getElementById('quiz-title').addEventListener('input', function() {
+  const indicator = document.getElementById('save-indicator');
+  indicator.textContent = 'Saving...';
+  clearTimeout(titleSaveTimer);
+  const val = this.value;
+  titleSaveTimer = setTimeout(async () => {
+    await fetch('/api/quizzes/' + slug, {
+      method: 'PATCH', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ title: val })
+    });
+    indicator.textContent = 'Saved';
+    setTimeout(() => { if (indicator.textContent === 'Saved') indicator.textContent = ''; }, 1500);
+  }, 700);
+});
+
+load();
+</script>
+</body>
+</html>

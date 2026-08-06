@@ -77,6 +77,41 @@ db.exec(`
     key TEXT PRIMARY KEY,
     value TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS quizzes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    is_public INTEGER DEFAULT 1,
+    owner_id INTEGER,
+    current_question_id INTEGER,
+    results_revealed INTEGER DEFAULT 0,
+    created_at INTEGER DEFAULT (unixepoch()),
+    updated_at INTEGER DEFAULT (unixepoch()),
+    FOREIGN KEY (owner_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS quiz_questions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    quiz_id INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    question_text TEXT NOT NULL DEFAULT '',
+    options TEXT NOT NULL DEFAULT '[]',
+    correct_index INTEGER,
+    created_at INTEGER DEFAULT (unixepoch()),
+    FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS quiz_votes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    question_id INTEGER NOT NULL,
+    voter_id TEXT NOT NULL,
+    option_index INTEGER NOT NULL,
+    created_at INTEGER DEFAULT (unixepoch()),
+    UNIQUE(question_id, voter_id),
+    FOREIGN KEY (question_id) REFERENCES quiz_questions(id) ON DELETE CASCADE
+  );
 `);
 
 // Schema migration: add Bunny Stream columns to an existing `videos` table without
@@ -89,6 +124,10 @@ ensureColumn('videos', 'provider', "provider TEXT DEFAULT 'local'");
 ensureColumn('videos', 'bunny_video_id', 'bunny_video_id TEXT');
 ensureColumn('videos', 'playback_url', 'playback_url TEXT');
 ensureColumn('videos', 'duration_sec', 'duration_sec INTEGER');
+// Separate from results_revealed: the correct-answer highlight is a second, deliberate
+// reveal step so it never shows on the (audience-visible) presenter screen alongside
+// the vote tally until the host explicitly reveals it.
+ensureColumn('quizzes', 'answer_revealed', 'answer_revealed INTEGER DEFAULT 0');
 
 // ── MIDDLEWARE ────────────────────────────────────────────────
 app.set('trust proxy', 1);
@@ -510,6 +549,251 @@ app.patch('/api/users/:id/role', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// ── API: QUIZZES ────────────────────────────────────────────────
+// List all public quizzes (for landing page)
+app.get('/api/quizzes', (req, res) => {
+  const rows = db.prepare(`
+    SELECT id, slug, title, description, is_public, created_at, updated_at
+    FROM quizzes WHERE is_public=1 ORDER BY updated_at DESC
+  `).all();
+  res.json(rows);
+});
+
+// Get single quiz metadata (no auth — needed by the public voter page too)
+app.get('/api/quizzes/:slug', (req, res) => {
+  const q = db.prepare('SELECT * FROM quizzes WHERE slug=?').get(req.params.slug);
+  if (!q) return res.status(404).json({ error: 'Not found' });
+  res.json(q);
+});
+
+// Create quiz (admin only)
+app.post('/api/quizzes', requireAdmin, (req, res) => {
+  const { title, description, slug } = req.body;
+  if (!title) return res.status(400).json({ error: 'Title required' });
+  const finalSlug = slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  try {
+    const result = db.prepare(`
+      INSERT INTO quizzes (slug, title, description, owner_id)
+      VALUES (?, ?, ?, ?)
+    `).run(finalSlug, title, description || '', req.session.user?.id);
+    res.json({ ok: true, id: result.lastInsertRowid, slug: finalSlug });
+  } catch (e) {
+    res.status(400).json({ error: 'Slug already exists' });
+  }
+});
+
+// Update quiz metadata
+app.patch('/api/quizzes/:slug', requireEditor, (req, res) => {
+  const q = db.prepare('SELECT * FROM quizzes WHERE slug=?').get(req.params.slug);
+  if (!q) return res.status(404).json({ error: 'Not found' });
+  const { title, description, is_public } = req.body;
+  db.prepare(`
+    UPDATE quizzes SET title=?, description=?, is_public=?, updated_at=unixepoch() WHERE id=?
+  `).run(title ?? q.title, description ?? q.description, is_public !== undefined ? (is_public ? 1 : 0) : q.is_public, q.id);
+  res.json({ ok: true });
+});
+
+// Delete quiz
+app.delete('/api/quizzes/:slug', requireAdmin, (req, res) => {
+  const q = db.prepare('SELECT * FROM quizzes WHERE slug=?').get(req.params.slug);
+  if (!q) return res.status(404).json({ error: 'Not found' });
+  db.prepare('DELETE FROM quizzes WHERE id=?').run(q.id);
+  res.json({ ok: true });
+});
+
+// Get questions (editor only — options/correct answer are authoring data)
+app.get('/api/quizzes/:slug/questions', requireEditor, (req, res) => {
+  const q = db.prepare('SELECT * FROM quizzes WHERE slug=?').get(req.params.slug);
+  if (!q) return res.status(404).json({ error: 'Not found' });
+  const questions = db.prepare('SELECT * FROM quiz_questions WHERE quiz_id=? ORDER BY position').all(q.id);
+  res.json(questions.map(qq => ({ ...qq, options: JSON.parse(qq.options || '[]') })));
+});
+
+// Save questions (whole-array replace, mirrors the slides save pattern). Ends any
+// live session, since old question ids (and their votes) no longer exist after this.
+app.put('/api/quizzes/:slug/questions', requireEditor, (req, res) => {
+  const q = db.prepare('SELECT * FROM quizzes WHERE slug=?').get(req.params.slug);
+  if (!q) return res.status(404).json({ error: 'Not found' });
+  const questions = req.body.questions || [];
+  const save = db.transaction((questions) => {
+    db.prepare('DELETE FROM quiz_questions WHERE quiz_id=?').run(q.id);
+    for (let i = 0; i < questions.length; i++) {
+      const qq = questions[i];
+      const correctIndex = (qq.correct_index === null || qq.correct_index === undefined || qq.correct_index === '')
+        ? null : qq.correct_index;
+      db.prepare(`
+        INSERT INTO quiz_questions (quiz_id, position, question_text, options, correct_index)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(q.id, i, qq.question_text || '', JSON.stringify(qq.options || []), correctIndex);
+    }
+    db.prepare('UPDATE quizzes SET updated_at=unixepoch(), current_question_id=NULL, results_revealed=0 WHERE id=?').run(q.id);
+  });
+  save(questions);
+  res.json({ ok: true });
+});
+
+// Start a new live session: wipes prior votes and puts the first question live.
+app.post('/api/quizzes/:slug/start', requireEditor, (req, res) => {
+  const q = db.prepare('SELECT * FROM quizzes WHERE slug=?').get(req.params.slug);
+  if (!q) return res.status(404).json({ error: 'Not found' });
+  const questions = db.prepare('SELECT id FROM quiz_questions WHERE quiz_id=? ORDER BY position').all(q.id);
+  if (!questions.length) return res.status(400).json({ error: 'Add at least one question first' });
+  const ids = questions.map(x => x.id);
+  const start = db.transaction(() => {
+    const placeholders = ids.map(() => '?').join(',');
+    db.prepare(`DELETE FROM quiz_votes WHERE question_id IN (${placeholders})`).run(...ids);
+    db.prepare('UPDATE quizzes SET current_question_id=?, results_revealed=0, answer_revealed=0 WHERE id=?').run(ids[0], q.id);
+  });
+  start();
+  res.json({ ok: true });
+});
+
+// Move to the next/previous question. Does not touch votes.
+app.post('/api/quizzes/:slug/goto', requireEditor, (req, res) => {
+  const q = db.prepare('SELECT * FROM quizzes WHERE slug=?').get(req.params.slug);
+  if (!q) return res.status(404).json({ error: 'Not found' });
+  const questions = db.prepare('SELECT id FROM quiz_questions WHERE quiz_id=? ORDER BY position').all(q.id);
+  if (!questions.length) return res.status(400).json({ error: 'No questions' });
+  const ids = questions.map(x => x.id);
+  let idx = ids.indexOf(q.current_question_id);
+  if (idx === -1) idx = 0;
+  if (req.body.direction === 'next') idx = Math.min(ids.length - 1, idx + 1);
+  else if (req.body.direction === 'prev') idx = Math.max(0, idx - 1);
+  db.prepare('UPDATE quizzes SET current_question_id=?, results_revealed=0, answer_revealed=0 WHERE id=?').run(ids[idx], q.id);
+  res.json({ ok: true, currentQuestionId: ids[idx], position: idx + 1, total: ids.length });
+});
+
+// Toggle (or explicitly set) whether the vote tally is revealed for the current
+// question. Hiding the tally also hides the correct-answer reveal (see below) — it
+// wouldn't make sense to leave that showing on its own.
+app.post('/api/quizzes/:slug/reveal', requireEditor, (req, res) => {
+  const q = db.prepare('SELECT * FROM quizzes WHERE slug=?').get(req.params.slug);
+  if (!q) return res.status(404).json({ error: 'Not found' });
+  const revealed = req.body.revealed !== undefined ? (req.body.revealed ? 1 : 0) : (q.results_revealed ? 0 : 1);
+  const answerRevealed = revealed ? q.answer_revealed : 0;
+  db.prepare('UPDATE quizzes SET results_revealed=?, answer_revealed=? WHERE id=?').run(revealed, answerRevealed, q.id);
+  res.json({ ok: true, revealed: !!revealed, answerRevealed: !!answerRevealed });
+});
+
+// Toggle (or explicitly set) whether the CORRECT ANSWER is highlighted, separate from
+// (and only available after) the vote tally reveal above. This is what keeps the
+// presenter's own (audience-visible) screen from spoiling the answer while voting or
+// while just showing the tally.
+app.post('/api/quizzes/:slug/reveal-answer', requireEditor, (req, res) => {
+  const q = db.prepare('SELECT * FROM quizzes WHERE slug=?').get(req.params.slug);
+  if (!q) return res.status(404).json({ error: 'Not found' });
+  if (!q.results_revealed) return res.status(409).json({ error: 'Show results before revealing the correct answer' });
+  const question = db.prepare('SELECT * FROM quiz_questions WHERE id=?').get(q.current_question_id);
+  if (!question || question.correct_index === null) return res.status(400).json({ error: 'This question has no correct answer to reveal' });
+  const answerRevealed = req.body.revealed !== undefined ? (req.body.revealed ? 1 : 0) : (q.answer_revealed ? 0 : 1);
+  db.prepare('UPDATE quizzes SET answer_revealed=? WHERE id=?').run(answerRevealed, q.id);
+  res.json({ ok: true, answerRevealed: !!answerRevealed });
+});
+
+// End the live session — back to lobby, voters see "waiting for host".
+app.post('/api/quizzes/:slug/end', requireEditor, (req, res) => {
+  const q = db.prepare('SELECT * FROM quizzes WHERE slug=?').get(req.params.slug);
+  if (!q) return res.status(404).json({ error: 'Not found' });
+  db.prepare('UPDATE quizzes SET current_question_id=NULL, results_revealed=0, answer_revealed=0 WHERE id=?').run(q.id);
+  res.json({ ok: true });
+});
+
+// Public live state — polled by the voter page. Hides vote counts and the correct
+// answer until the host reveals them; optionally echoes back the caller's own vote.
+app.get('/api/quizzes/:slug/live', (req, res) => {
+  const q = db.prepare('SELECT * FROM quizzes WHERE slug=?').get(req.params.slug);
+  if (!q) return res.status(404).json({ error: 'Not found' });
+  const questions = db.prepare('SELECT id FROM quiz_questions WHERE quiz_id=? ORDER BY position').all(q.id);
+  const total = questions.length;
+
+  if (!q.current_question_id) {
+    return res.json({ live: false, title: q.title, total });
+  }
+  const position = questions.findIndex(x => x.id === q.current_question_id);
+  const question = db.prepare('SELECT * FROM quiz_questions WHERE id=?').get(q.current_question_id);
+  const options = JSON.parse(question.options || '[]');
+  const payload = {
+    live: true,
+    questionId: question.id,
+    text: question.question_text,
+    options,
+    position: position + 1,
+    total,
+    revealed: !!q.results_revealed,
+    hasCorrectAnswer: question.correct_index !== null
+  };
+  if (req.query.voterId) {
+    const mine = db.prepare('SELECT option_index FROM quiz_votes WHERE question_id=? AND voter_id=?')
+      .get(question.id, req.query.voterId);
+    payload.yourVote = mine ? mine.option_index : null;
+  }
+  if (q.results_revealed) {
+    const rows = db.prepare('SELECT option_index, COUNT(*) as n FROM quiz_votes WHERE question_id=? GROUP BY option_index').all(question.id);
+    const counts = options.map((_, i) => rows.find(r => r.option_index === i)?.n || 0);
+    payload.counts = counts;
+    payload.total_votes = counts.reduce((a, b) => a + b, 0);
+    // Correct answer is a second, separate reveal step — never sent until the host
+    // has explicitly revealed it, even though the tally is already showing.
+    if (q.answer_revealed) payload.correct_index = question.correct_index;
+  }
+  res.json(payload);
+});
+
+// Host-facing live state — always includes live vote counts (even before the tally is
+// revealed to the audience, so the host can gauge participation). The correct answer
+// itself is redacted until answer_revealed, same as the voter-facing endpoint — the
+// presenter view is shown on a projector, so it's just as public as the voter's screen.
+app.get('/api/quizzes/:slug/host-state', requireEditor, (req, res) => {
+  const q = db.prepare('SELECT * FROM quizzes WHERE slug=?').get(req.params.slug);
+  if (!q) return res.status(404).json({ error: 'Not found' });
+  const questions = db.prepare('SELECT * FROM quiz_questions WHERE quiz_id=? ORDER BY position').all(q.id);
+  const position = questions.findIndex(x => x.id === q.current_question_id);
+  const current = position >= 0 ? questions[position] : null;
+  let counts = null, totalVotes = 0, currentSafe = null;
+  if (current) {
+    const options = JSON.parse(current.options || '[]');
+    const rows = db.prepare('SELECT option_index, COUNT(*) as n FROM quiz_votes WHERE question_id=? GROUP BY option_index').all(current.id);
+    counts = options.map((_, i) => rows.find(r => r.option_index === i)?.n || 0);
+    totalVotes = counts.reduce((a, b) => a + b, 0);
+    currentSafe = {
+      id: current.id,
+      question_text: current.question_text,
+      options,
+      hasCorrectAnswer: current.correct_index !== null,
+      correct_index: q.answer_revealed ? current.correct_index : null
+    };
+  }
+  res.json({
+    quiz: q,
+    total: questions.length,
+    position: position >= 0 ? position + 1 : 0,
+    current: currentSafe,
+    counts, totalVotes,
+    revealed: !!q.results_revealed,
+    answerRevealed: !!q.answer_revealed
+  });
+});
+
+// Cast or change a vote. Public — no auth. One vote per (question, voterId); only
+// accepted while that question is the live one and results aren't revealed yet.
+app.post('/api/quizzes/:slug/vote', (req, res) => {
+  const q = db.prepare('SELECT * FROM quizzes WHERE slug=?').get(req.params.slug);
+  if (!q) return res.status(404).json({ error: 'Not found' });
+  const { questionId, voterId, optionIndex } = req.body;
+  if (!voterId || typeof optionIndex !== 'number') return res.status(400).json({ error: 'Missing voterId or optionIndex' });
+  if (questionId !== q.current_question_id) return res.status(409).json({ error: 'This question is no longer live' });
+  if (q.results_revealed) return res.status(409).json({ error: 'Voting is closed for this question' });
+  const question = db.prepare('SELECT * FROM quiz_questions WHERE id=? AND quiz_id=?').get(questionId, q.id);
+  if (!question) return res.status(404).json({ error: 'Question not found' });
+  const options = JSON.parse(question.options || '[]');
+  if (optionIndex < 0 || optionIndex >= options.length) return res.status(400).json({ error: 'Invalid option' });
+  db.prepare(`
+    INSERT INTO quiz_votes (question_id, voter_id, option_index) VALUES (?, ?, ?)
+    ON CONFLICT(question_id, voter_id) DO UPDATE SET option_index=excluded.option_index
+  `).run(questionId, voterId, optionIndex);
+  res.json({ ok: true });
+});
+
 // ── API: SESSION ──────────────────────────────────────────────
 app.get('/api/me', (req, res) => {
   if (!req.session.user) return res.json({ loggedIn: false });
@@ -534,6 +818,27 @@ app.get('/edit/:slug', (req, res) => {
     return res.redirect(`/auth/login?returnTo=/edit/${req.params.slug}`);
   }
   res.sendFile(join(__dirname, 'public', 'edit', 'index.html'));
+});
+
+// Quiz question editor — requires Pocket ID session
+app.get('/quiz/:slug/edit', (req, res) => {
+  if (!req.session.user || !['admin', 'creator'].includes(req.session.user.role)) {
+    return res.redirect(`/auth/login?returnTo=/quiz/${req.params.slug}/edit`);
+  }
+  res.sendFile(join(__dirname, 'public', 'quiz', 'edit.html'));
+});
+
+// Quiz host/present view — requires Pocket ID session
+app.get('/quiz/:slug/present', (req, res) => {
+  if (!req.session.user || !['admin', 'creator'].includes(req.session.user.role)) {
+    return res.redirect(`/auth/login?returnTo=/quiz/${req.params.slug}/present`);
+  }
+  res.sendFile(join(__dirname, 'public', 'quiz', 'present.html'));
+});
+
+// Quiz voter page — public, no auth (this is what the QR code points to)
+app.get('/quiz/:slug/vote', (req, res) => {
+  res.sendFile(join(__dirname, 'public', 'quiz', 'vote.html'));
 });
 
 // Admin dashboard

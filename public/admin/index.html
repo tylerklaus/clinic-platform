@@ -70,6 +70,7 @@ textarea{height:70px;resize:vertical;line-height:1.5}
 </header>
 <nav>
   <div class="nav-tab active" id="tab-btn-presentations">Presentations</div>
+  <div class="nav-tab" id="tab-btn-quizzes">Quizzes</div>
   <div class="nav-tab" id="tab-btn-videos">Shared Videos</div>
   <div class="nav-tab" id="tab-btn-users">Users</div>
 </nav>
@@ -101,6 +102,31 @@ textarea{height:70px;resize:vertical;line-height:1.5}
   <table id="pres-table">
     <thead><tr><th>Title</th><th>Slug</th><th>Visibility</th><th>Password</th><th>Updated</th><th>Actions</th></tr></thead>
     <tbody id="pres-tbody"></tbody>
+  </table>
+</div>
+
+<div class="tab-panel" id="tab-quizzes">
+  <div class="section-header">
+    <h2>Quizzes</h2>
+    <button class="btn btn-primary" id="btn-new-quiz">+ New Quiz</button>
+  </div>
+  <div class="card" id="new-quiz-form" style="display:none;">
+    <h3>New Quiz</h3>
+    <div class="form-row">
+      <div class="form-group"><label>Title</label><input type="text" id="nq-title" placeholder="e.g. Rules Refresher 2026"></div>
+      <div class="form-group"><label>Slug (URL)</label><input type="text" id="nq-slug" placeholder="auto-generated"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group full"><label>Description</label><textarea id="nq-desc" placeholder="Short description shown on the landing page"></textarea></div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-primary" id="btn-create-quiz">Create</button>
+      <button class="btn btn-ghost" id="btn-cancel-quiz">Cancel</button>
+    </div>
+  </div>
+  <table id="quiz-table">
+    <thead><tr><th>Title</th><th>Slug</th><th>Visibility</th><th>Updated</th><th>Actions</th></tr></thead>
+    <tbody id="quiz-tbody"></tbody>
   </table>
 </div>
 
@@ -158,11 +184,12 @@ async function init() {
   loadPresentations();
   setupTabs();
   setupNewPresForm();
+  setupNewQuizForm();
   setupVideoUpload();
 }
 
 function setupTabs() {
-  var tabs = ['presentations', 'videos', 'users'];
+  var tabs = ['presentations', 'quizzes', 'videos', 'users'];
   tabs.forEach(function(name) {
     document.getElementById('tab-btn-' + name).addEventListener('click', function() {
       tabs.forEach(function(t) {
@@ -173,6 +200,7 @@ function setupTabs() {
       document.getElementById('tab-' + name).classList.add('active');
       if (name === 'users') loadUsers();
       if (name === 'videos') loadSharedVideos();
+      if (name === 'quizzes') loadQuizzes();
     });
   });
 }
@@ -253,6 +281,80 @@ async function deletePresentation(slug, title) {
   var r = await fetch('/api/presentations/' + slug, {method:'DELETE'});
   var d = await r.json();
   if (d.ok) { toast('Deleted'); loadPresentations(); }
+}
+
+function setupNewQuizForm() {
+  document.getElementById('btn-new-quiz').addEventListener('click', function() {
+    document.getElementById('new-quiz-form').style.display = 'block';
+    document.getElementById('nq-title').focus();
+  });
+  document.getElementById('btn-cancel-quiz').addEventListener('click', function() {
+    document.getElementById('new-quiz-form').style.display = 'none';
+  });
+  document.getElementById('btn-create-quiz').addEventListener('click', createQuiz);
+  document.getElementById('nq-title').addEventListener('input', function() {
+    var slug = this.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    document.getElementById('nq-slug').value = slug;
+  });
+}
+
+async function loadQuizzes() {
+  var r = await fetch('/api/quizzes');
+  var quizzes = await r.json();
+  var tbody = document.getElementById('quiz-tbody');
+  if (!quizzes.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text2);padding:24px;">No quizzes yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = '';
+  quizzes.forEach(function(q) {
+    var d = new Date(q.updated_at * 1000).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'});
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td><strong>' + q.title + '</strong></td>' +
+      '<td class="slug">' + q.slug + '</td>' +
+      '<td><span class="badge badge-' + (q.is_public ? 'public' : 'private') + '">' + (q.is_public ? 'Public' : 'Unlisted') + '</span></td>' +
+      '<td>' + d + '</td>' +
+      '<td><div class="actions">' +
+        '<a href="/quiz/' + q.slug + '/edit" class="btn btn-ghost" style="font-size:11px;">Edit</a>' +
+        '<a href="/quiz/' + q.slug + '/present" class="btn btn-ghost" style="font-size:11px;">Present</a>' +
+        '<button class="btn btn-danger del-quiz-btn" data-slug="' + q.slug + '" data-title="' + q.title + '" style="font-size:11px;">Delete</button>' +
+      '</div></td>';
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('.del-quiz-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      deleteQuiz(this.dataset.slug, this.dataset.title);
+    });
+  });
+}
+
+async function createQuiz() {
+  var title = document.getElementById('nq-title').value.trim();
+  if (!title) { toast('Title required'); return; }
+  var body = {
+    title: title,
+    slug: document.getElementById('nq-slug').value.trim() || undefined,
+    description: document.getElementById('nq-desc').value.trim()
+  };
+  var r = await fetch('/api/quizzes', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  var d = await r.json();
+  if (d.ok) {
+    toast('Created!');
+    document.getElementById('new-quiz-form').style.display = 'none';
+    document.getElementById('nq-title').value = '';
+    document.getElementById('nq-slug').value = '';
+    document.getElementById('nq-desc').value = '';
+    loadQuizzes();
+  } else {
+    toast('Error: ' + d.error);
+  }
+}
+
+async function deleteQuiz(slug, title) {
+  if (!confirm('Delete "' + title + '"? This cannot be undone.')) return;
+  var r = await fetch('/api/quizzes/' + slug, {method:'DELETE'});
+  var d = await r.json();
+  if (d.ok) { toast('Deleted'); loadQuizzes(); }
 }
 
 async function loadUsers() {

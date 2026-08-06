@@ -69,6 +69,9 @@ main{max-width:1100px;margin:0 auto;padding:48px 24px}
     </a>
   </div>
   <div class="grid" id="grid"><div style="color:rgba(255,255,255,0.3);padding:40px;">Loading...</div></div>
+
+  <div class="hero" style="margin-top:56px;margin-bottom:24px;"><h2 style="font-size:26px;">Quizzes</h2><p>Live audience polling &amp; rules quizzes — scan a QR code to vote</p></div>
+  <div class="grid" id="quiz-grid"><div style="color:rgba(255,255,255,0.3);padding:40px;">Loading...</div></div>
 </main>
 <div class="overlay" id="overlay">
   <div class="modal">
@@ -86,13 +89,33 @@ main{max-width:1100px;margin:0 auto;padding:48px 24px}
 <script>
 let pendingSlug=null,me={};
 async function init(){
-  const [pr,mr]=await Promise.all([fetch('/api/presentations'),fetch('/api/me')]);
+  const [pr,mr,qr]=await Promise.all([fetch('/api/presentations'),fetch('/api/me'),fetch('/api/quizzes')]);
   const pres=await pr.json(); me=await mr.json();
+  const quizzes=await qr.json();
   if(me.loggedIn){
     document.getElementById('user-info').textContent=me.user.name||me.user.email;
     document.getElementById('login-btn').style.display='none';
     document.getElementById('logout-btn').style.display='';
     if(['admin','creator'].includes(me.user.role))document.getElementById('admin-link').style.display='';
+  }
+  const canEdit=me.loggedIn&&['admin','creator'].includes(me.user.role);
+  const qgrid=document.getElementById('quiz-grid');
+  if(!quizzes.length){
+    qgrid.innerHTML='<div class="empty"><h3>No quizzes yet</h3><p>'+(canEdit?'Create one from the Admin dashboard.':'Check back soon.')+'</p></div>';
+  } else {
+    qgrid.innerHTML=quizzes.map(q=>{
+      const d=new Date(q.updated_at*1000).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      return `<a class="card" href="/quiz/${q.slug}/present" style="text-decoration:none;color:inherit;display:block;">
+        <div class="card-thumb" style="background:var(--navy)">
+          <div class="card-thumb-text">${q.title.substring(0,3).toUpperCase()}</div>
+          <div class="card-thumb-title">${q.title}</div>
+          <div class="card-thumb-badge">Quiz</div>
+        </div>
+        <div class="card-body">
+          <div class="card-desc">${q.description||'Click to present.'}</div>
+          <div class="card-meta"><span>Updated ${d}</span>${canEdit?`<a href="/quiz/${q.slug}/edit" onclick="event.stopPropagation()" style="color:var(--gold);text-decoration:none;margin-left:auto;">Edit questions ›</a>`:''}</div>
+        </div></a>`;
+    }).join('');
   }
   const grid=document.getElementById('grid');
   if(!pres.length){grid.innerHTML='<div class="empty"><h3>No presentations yet</h3><p>Sign in as admin to create one.</p></div>';return;}

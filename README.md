@@ -11,6 +11,7 @@ Volleyball officials clinic presentation platform. Built for IHSA Boys Volleybal
 - Direct `/p/{slug}` links bypass password entirely
 - Video library — shared clips available to all presentations, private clips per presentation
 - 12 slide types: title, scenario, answer reveal, rule change, points of emphasis, discussion, casebook, state title, stat, embed (Slido), volleyball rotation trainer, full photo
+- Live quizzes (Slido-style) — standalone, one dashboard tile per quiz. Audience scans a QR code to vote on multiple-choice questions as the host advances through them; questions can either mark a correct answer (rules-training quizzes) or run as a plain opinion poll, mixed freely within one quiz. Results stay hidden from voters until the host reveals them. Starting a live run always resets that quiz's votes to zero.
 
 ## URL Structure
 
@@ -19,6 +20,9 @@ Volleyball officials clinic presentation platform. Built for IHSA Boys Volleybal
 | `clinic.santahouse.me` | Public — presentation listing |
 | `clinic.santahouse.me/p/{slug}` | Public — direct viewer (no password) |
 | `clinic.santahouse.me/edit/{slug}` | Pocket ID — creators + admins |
+| `clinic.santahouse.me/quiz/{slug}/edit` | Pocket ID — creators + admins (question editor) |
+| `clinic.santahouse.me/quiz/{slug}/present` | Pocket ID — creators + admins (host control screen) |
+| `clinic.santahouse.me/quiz/{slug}/vote` | Public — what the QR code points to |
 | `clinic.santahouse.me/admin` | Pocket ID — admins only |
 
 ## Project Structure

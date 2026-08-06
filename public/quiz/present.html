@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Present Quiz — Clinic</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#1B1B2F;--gold:#F26522;--bg:#0f0f1a;--surface:#1e1e32;--border:rgba(255,255,255,0.08);--text:#f0f0f0;--text2:rgba(255,255,255,0.55)}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden;}
+#page{position:fixed;inset:0;display:flex;flex-direction:column;}
+header{background:var(--navy);border-bottom:3px solid var(--gold);padding:0 24px;height:56px;display:flex;align-items:center;gap:16px;flex-shrink:0;}
+header a{color:rgba(255,255,255,0.6);text-decoration:none;font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px;}
+header a:hover{color:#fff}
+header h1{font-size:15px;font-weight:700;color:#fff;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.btn{padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px;transition:opacity 0.15s;text-decoration:none;white-space:nowrap;}
+.btn-primary{background:var(--gold);color:var(--navy)}
+.btn-ghost{background:rgba(255,255,255,0.09);color:var(--text);border:1px solid var(--border)}
+.btn:hover{opacity:0.85}
+.btn:disabled{opacity:0.35;cursor:default;}
+#stage{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:32px;}
+
+/* Lobby */
+#lobby{display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center;}
+#lobby h2{font-size:26px;font-weight:800;color:#fff;}
+#lobby p{color:var(--text2);font-size:14px;max-width:420px;}
+#qr-big{background:#fff;padding:20px;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.4);}
+#qr-big svg{display:block;width:260px;height:260px;}
+#vote-url{font-family:monospace;font-size:15px;color:var(--gold);background:rgba(242,101,34,0.1);padding:8px 16px;border-radius:8px;}
+
+/* Live */
+#live{width:100%;max-width:900px;display:none;flex-direction:column;gap:20px;}
+#progress{font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;text-align:center;}
+#q-text{font-size:30px;font-weight:800;color:#fff;text-align:center;line-height:1.25;padding:0 20px;}
+#opt-list{display:flex;flex-direction:column;gap:12px;}
+.opt-bar{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;overflow:hidden;}
+.opt-bar-fill{position:absolute;top:0;left:0;bottom:0;background:rgba(242,101,34,0.22);transition:width 0.4s ease;z-index:0;}
+.opt-bar.correct{border-color:var(--gold);}
+.opt-bar.correct .opt-bar-fill{background:rgba(76,175,130,0.28);}
+.opt-bar-row{position:relative;z-index:1;display:flex;align-items:center;gap:10px;}
+.opt-bar-text{flex:1;font-size:16px;font-weight:600;color:#fff;}
+.opt-bar-count{font-size:14px;font-weight:700;color:var(--text2);}
+.opt-bar.correct .opt-bar-count{color:#6fd19a;}
+.correct-tag{font-size:10px;font-weight:800;color:#6fd19a;background:rgba(76,175,130,0.15);padding:2px 8px;border-radius:10px;text-transform:uppercase;}
+#total-votes{text-align:center;font-size:12px;color:var(--text2);}
+#controls{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;}
+#mini-qr{position:fixed;bottom:16px;right:16px;background:#fff;padding:8px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.4);display:none;}
+#mini-qr svg{display:block;width:84px;height:84px;}
+#mini-qr .cap{font-size:9px;color:#333;text-align:center;font-weight:700;margin-top:3px;}
+</style>
+</head>
+<body>
+<div id="page">
+  <header>
+    <a href="/"><i class="ti ti-chevron-left"></i> Dashboard</a>
+    <h1 id="quiz-title">Loading...</h1>
+    <a id="edit-link" href="#" class="btn btn-ghost"><i class="ti ti-pencil"></i> Edit Questions</a>
+  </header>
+  <div id="stage">
+    <div id="lobby">
+      <h2 id="lobby-title">Ready to present</h2>
+      <p>Have your audience scan this code, then click Start when you're ready. Starting clears any previous results for this quiz.</p>
+      <div id="qr-big"></div>
+      <div id="vote-url"></div>
+      <button class="btn btn-primary" id="btn-start" style="padding:12px 28px;font-size:14px;"><i class="ti ti-player-play"></i> Start Presenting</button>
+    </div>
+    <div id="live">
+      <div id="progress"></div>
+      <div id="q-text"></div>
+      <div id="opt-list"></div>
+      <div id="total-votes"></div>
+      <div id="controls">
+        <button class="btn btn-ghost" id="btn-prev"><i class="ti ti-chevron-left"></i> Prev</button>
+        <button class="btn btn-primary" id="btn-reveal"></button>
+        <button class="btn btn-primary" id="btn-reveal-answer" style="background:#4caf82;color:#0f172a;display:none;"></button>
+        <button class="btn btn-ghost" id="btn-next">Next <i class="ti ti-chevron-right"></i></button>
+        <button class="btn btn-ghost" id="btn-end" style="margin-left:20px;"><i class="ti ti-square-x"></i> End Session</button>
+      </div>
+    </div>
+  </div>
+  <div id="mini-qr"><div id="mini-qr-code"></div><div class="cap">SCAN TO VOTE</div></div>
+</div>
+<script src="/assets/qrcode.js"></script>
+<script>
+const slug = location.pathname.split('/quiz/')[1].split('/')[0];
+document.getElementById('edit-link').href = '/quiz/' + slug + '/edit';
+const voteUrl = location.origin + '/quiz/' + slug + '/vote';
+let pollTimer = null;
+let lastRevealed = null;
+
+function renderQr(el, size) {
+  const qr = qrcode(0, 'M');
+  qr.addData(voteUrl);
+  qr.make();
+  el.innerHTML = qr.createSvgTag({ cellSize: size, margin: 2 });
+}
+
+async function loadMeta() {
+  const r = await fetch('/api/quizzes/' + slug);
+  if (!r.ok) { alert('Quiz not found'); location.href = '/'; return; }
+  const quiz = await r.json();
+  document.title = 'Present: ' + quiz.title + ' — Clinic';
+  document.getElementById('quiz-title').textContent = quiz.title;
+  document.getElementById('lobby-title').textContent = quiz.title;
+}
+
+function fmtCount(n) { return n === 1 ? '1 vote' : n + ' votes'; }
+
+function renderState(state) {
+  const isLive = !!state.current;
+  document.getElementById('lobby').style.display = isLive ? 'none' : 'flex';
+  document.getElementById('live').style.display = isLive ? 'flex' : 'none';
+  document.getElementById('mini-qr').style.display = isLive ? 'block' : 'none';
+
+  if (!isLive) return;
+
+  document.getElementById('progress').textContent = 'Question ' + state.position + ' of ' + state.total;
+  document.getElementById('q-text').textContent = state.current.question_text;
+
+  const opts = state.current.options;
+  const counts = state.counts || opts.map(() => 0);
+  const maxCount = Math.max(1, ...counts);
+  const list = document.getElementById('opt-list');
+  list.innerHTML = '';
+  // The correct answer is a second, separate reveal step from the vote tally — the
+  // server only ever sends correct_index once answerRevealed is true, but we also
+  // gate on that flag explicitly here so this can never show early even if that changes.
+  opts.forEach((opt, i) => {
+    const isCorrect = state.answerRevealed && state.current.correct_index === i;
+    const bar = document.createElement('div');
+    bar.className = 'opt-bar' + (isCorrect ? ' correct' : '');
+    const pct = state.revealed ? Math.round((counts[i] / maxCount) * 100) : 0;
+    bar.innerHTML = `
+      <div class="opt-bar-fill" style="width:${state.revealed ? pct : 0}%;"></div>
+      <div class="opt-bar-row">
+        <div class="opt-bar-text">${opt}${isCorrect ? ' <span class="correct-tag">Correct</span>' : ''}</div>
+        <div class="opt-bar-count">${state.revealed ? fmtCount(counts[i]) : ''}</div>
+      </div>`;
+    list.appendChild(bar);
+  });
+  document.getElementById('total-votes').textContent = state.revealed
+    ? 'Results shown to voters — ' + fmtCount(state.totalVotes) + ' total'
+    : fmtCount(state.totalVotes) + ' so far (hidden from voters until revealed)';
+
+  document.getElementById('btn-prev').disabled = state.position <= 1;
+  document.getElementById('btn-next').disabled = state.position >= state.total;
+  const revealBtn = document.getElementById('btn-reveal');
+  revealBtn.innerHTML = state.revealed
+    ? '<i class="ti ti-eye-off"></i> Hide Results'
+    : '<i class="ti ti-eye"></i> Reveal Results';
+
+  const answerBtn = document.getElementById('btn-reveal-answer');
+  if (state.current.hasCorrectAnswer) {
+    answerBtn.style.display = 'inline-flex';
+    answerBtn.disabled = !state.revealed;
+    answerBtn.title = state.revealed ? '' : 'Reveal results first';
+    answerBtn.innerHTML = state.answerRevealed
+      ? '<i class="ti ti-eye-off"></i> Hide Correct Answer'
+      : '<i class="ti ti-eye-check"></i> Reveal Correct Answer';
+  } else {
+    answerBtn.style.display = 'none';
+  }
+}
+
+async function poll() {
+  try {
+    const r = await fetch('/api/quizzes/' + slug + '/host-state');
+    const state = await r.json();
+    renderState(state);
+  } catch (e) { /* transient network hiccup, next poll will retry */ }
+}
+
+function startPolling() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(poll, 1500);
+  poll();
+}
+
+document.getElementById('btn-start').addEventListener('click', async () => {
+  if (!confirm('Start presenting? This clears any previous results for this quiz.')) return;
+  const r = await fetch('/api/quizzes/' + slug + '/start', { method: 'POST' });
+  const d = await r.json();
+  if (!r.ok) { alert(d.error || 'Could not start'); return; }
+  poll();
+});
+document.getElementById('btn-prev').addEventListener('click', async () => {
+  await fetch('/api/quizzes/' + slug + '/goto', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({direction:'prev'}) });
+  poll();
+});
+document.getElementById('btn-next').addEventListener('click', async () => {
+  await fetch('/api/quizzes/' + slug + '/goto', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({direction:'next'}) });
+  poll();
+});
+document.getElementById('btn-reveal').addEventListener('click', async () => {
+  await fetch('/api/quizzes/' + slug + '/reveal', { method: 'POST' });
+  poll();
+});
+document.getElementById('btn-reveal-answer').addEventListener('click', async () => {
+  const r = await fetch('/api/quizzes/' + slug + '/reveal-answer', { method: 'POST' });
+  const d = await r.json();
+  if (!r.ok) { alert(d.error || 'Could not reveal the correct answer'); return; }
+  poll();
+});
+document.getElementById('btn-end').addEventListener('click', async () => {
+  if (!confirm('End this session? Voters will see "waiting for host" until you start again.')) return;
+  await fetch('/api/quizzes/' + slug + '/end', { method: 'POST' });
+  poll();
+});
+
+renderQr(document.getElementById('qr-big'), 7);
+renderQr(document.getElementById('mini-qr-code'), 2);
+document.getElementById('vote-url').textContent = voteUrl.replace(/^https?:\/\//, '');
+loadMeta();
+startPolling();
+</script>
+</body>
+</html>
