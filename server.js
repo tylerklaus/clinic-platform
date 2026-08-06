@@ -196,15 +196,32 @@ const OIDC_BASE = process.env.OIDC_ISSUER || 'https://auth.santahouse.me';
 const CLIENT_ID = process.env.OIDC_CLIENT_ID || '';
 const CLIENT_SECRET = process.env.OIDC_CLIENT_SECRET || '';
 const REDIRECT_URI = process.env.OIDC_REDIRECT_URI || 'https://clinic.santahouse.me/auth/callback';
+// Extra hostnames this app also answers to (e.g. a second domain proxied to the same
+// LXC) that have ALSO been registered as redirect URIs on the Pocket ID client. Without
+// this, the login flow always bounces back to REDIRECT_URI's host regardless of which
+// domain the user started on — session cookies are per-domain, so that mismatch is what
+// produces "Invalid state" when logging in from any host other than the primary one.
+const EXTRA_OIDC_HOSTS = (process.env.OIDC_EXTRA_HOSTS || '').split(',').map(h => h.trim()).filter(Boolean);
+const ALLOWED_OIDC_HOSTS = [new URL(REDIRECT_URI).host, ...EXTRA_OIDC_HOSTS];
+
+// Picks the redirect_uri matching the domain the request actually came in on, from an
+// explicit allowlist — never trusts the Host header blindly for building this URL.
+function redirectUriForRequest(req) {
+  const host = req.get('host');
+  return (host && ALLOWED_OIDC_HOSTS.includes(host)) ? `https://${host}/auth/callback` : REDIRECT_URI;
+}
 
 app.get('/auth/login', (req, res) => {
   const state = randomBytes(16).toString('hex');
   req.session.oauthState = state;
   req.session.returnTo = req.query.returnTo || '/admin';
+  // Remember exactly which redirect_uri we used — the token exchange in /auth/callback
+  // must send back this same value (OAuth2 requires an exact match).
+  req.session.oauthRedirectUri = redirectUriForRequest(req);
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: CLIENT_ID,
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: req.session.oauthRedirectUri,
     scope: 'openid profile email groups',
     state
   });
@@ -215,13 +232,14 @@ app.get('/auth/callback', async (req, res) => {
   try {
     const { code, state } = req.query;
     if (state !== req.session.oauthState) return res.status(400).send('Invalid state');
+    const redirectUri = req.session.oauthRedirectUri || REDIRECT_URI;
 
     const tokenRes = await fetch(`${OIDC_BASE}/api/oidc/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
-        code, client_id: CLIENT_ID, client_secret: CLIENT_SECRET, redirect_uri: REDIRECT_URI
+        code, client_id: CLIENT_ID, client_secret: CLIENT_SECRET, redirect_uri: redirectUri
       })
     });
     const tokens = await tokenRes.json();
