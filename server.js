@@ -128,6 +128,9 @@ ensureColumn('videos', 'duration_sec', 'duration_sec INTEGER');
 // reveal step so it never shows on the (audience-visible) presenter screen alongside
 // the vote tally until the host explicitly reveals it.
 ensureColumn('quizzes', 'answer_revealed', 'answer_revealed INTEGER DEFAULT 0');
+// Optional video (from the same shared library presentations use) shown on the
+// presenter's own screen for a question — never sent to the voter-facing endpoint.
+ensureColumn('quiz_questions', 'video_url', 'video_url TEXT');
 
 // ── MIDDLEWARE ────────────────────────────────────────────────
 app.set('trust proxy', 1);
@@ -640,14 +643,22 @@ app.put('/api/quizzes/:slug/questions', requireEditor, (req, res) => {
       const correctIndex = (qq.correct_index === null || qq.correct_index === undefined || qq.correct_index === '')
         ? null : qq.correct_index;
       db.prepare(`
-        INSERT INTO quiz_questions (quiz_id, position, question_text, options, correct_index)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(q.id, i, qq.question_text || '', JSON.stringify(qq.options || []), correctIndex);
+        INSERT INTO quiz_questions (quiz_id, position, question_text, options, correct_index, video_url)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(q.id, i, qq.question_text || '', JSON.stringify(qq.options || []), correctIndex, qq.video_url || null);
     }
     db.prepare('UPDATE quizzes SET updated_at=unixepoch(), current_question_id=NULL, results_revealed=0 WHERE id=?').run(q.id);
   });
   save(questions);
   res.json({ ok: true });
+});
+
+// List shared videos available to attach to a question — same library presentations
+// draw from (local + synced Bunny clips), editor-only (options.correct answer is
+// authoring data, matching the questions endpoint's access level).
+app.get('/api/quizzes/:slug/videos', requireEditor, (req, res) => {
+  const videos = db.prepare("SELECT * FROM videos WHERE scope='shared' ORDER BY created_at DESC").all();
+  res.json(videos.map(v => ({ ...v, url: videoUrl(v) })));
 });
 
 // Start a new live session: wipes prior votes and puts the first question live.
@@ -778,7 +789,8 @@ app.get('/api/quizzes/:slug/host-state', requireEditor, (req, res) => {
       question_text: current.question_text,
       options,
       hasCorrectAnswer: current.correct_index !== null,
-      correct_index: q.answer_revealed ? current.correct_index : null
+      correct_index: q.answer_revealed ? current.correct_index : null,
+      video_url: current.video_url || null
     };
   }
   res.json({

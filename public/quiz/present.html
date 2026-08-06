@@ -33,6 +33,7 @@ header h1{font-size:15px;font-weight:700;color:#fff;flex:1;overflow:hidden;text-
 #live{width:100%;max-width:900px;display:none;flex-direction:column;gap:20px;}
 #progress{font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;text-align:center;}
 #q-text{font-size:30px;font-weight:800;color:#fff;text-align:center;line-height:1.25;padding:0 20px;}
+#q-video{display:none;max-width:100%;max-height:320px;border-radius:10px;background:#000;margin:0 auto;}
 #opt-list{display:flex;flex-direction:column;gap:12px;}
 .opt-bar{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;overflow:hidden;}
 .opt-bar-fill{position:absolute;top:0;left:0;bottom:0;background:rgba(242,101,34,0.22);transition:width 0.4s ease;z-index:0;}
@@ -55,6 +56,7 @@ header h1{font-size:15px;font-weight:700;color:#fff;flex:1;overflow:hidden;text-
   <header>
     <a href="/"><i class="ti ti-chevron-left"></i> Dashboard</a>
     <h1 id="quiz-title">Loading...</h1>
+    <button class="btn btn-ghost" id="btn-fullscreen" title="Toggle fullscreen"><i class="ti ti-maximize"></i></button>
     <a id="edit-link" href="#" class="btn btn-ghost"><i class="ti ti-pencil"></i> Edit Questions</a>
   </header>
   <div id="stage">
@@ -68,6 +70,7 @@ header h1{font-size:15px;font-weight:700;color:#fff;flex:1;overflow:hidden;text-
     <div id="live">
       <div id="progress"></div>
       <div id="q-text"></div>
+      <video id="q-video" controls></video>
       <div id="opt-list"></div>
       <div id="total-votes"></div>
       <div id="controls">
@@ -88,6 +91,49 @@ document.getElementById('edit-link').href = '/quiz/' + slug + '/edit';
 const voteUrl = location.origin + '/quiz/' + slug + '/vote';
 let pollTimer = null;
 let lastRevealed = null;
+let currentVideoUrl; // undefined = not yet set; distinct from null = "this question has no video"
+
+// Only touches the <video> element when the attached video actually changes — otherwise
+// every 1.5s poll tick would restart playback out from under the presenter.
+function updateVideo(url) {
+  if (url === currentVideoUrl) return;
+  currentVideoUrl = url;
+  const video = document.getElementById('q-video');
+  if (url) {
+    video.src = url;
+    video.style.display = 'block';
+    video.load();
+  } else {
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+    video.style.display = 'none';
+  }
+}
+
+// Fullscreen — covers vendor-prefixed Safari APIs too.
+function fsElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+}
+function enterFullscreen() {
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+  if (req && !fsElement()) { try { req.call(el); } catch (e) {} }
+}
+function exitFullscreen() {
+  const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+  if (exit && fsElement()) { try { exit.call(document); } catch (e) {} }
+}
+function updateFsIcon() {
+  document.getElementById('btn-fullscreen').innerHTML = fsElement()
+    ? '<i class="ti ti-minimize"></i>' : '<i class="ti ti-maximize"></i>';
+}
+['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
+  document.addEventListener(evt, updateFsIcon);
+});
+document.getElementById('btn-fullscreen').addEventListener('click', () => {
+  fsElement() ? exitFullscreen() : enterFullscreen();
+});
 
 function renderQr(el, size) {
   const qr = qrcode(0, 'M');
@@ -113,10 +159,11 @@ function renderState(state) {
   document.getElementById('live').style.display = isLive ? 'flex' : 'none';
   document.getElementById('mini-qr').style.display = isLive ? 'block' : 'none';
 
-  if (!isLive) return;
+  if (!isLive) { updateVideo(null); return; }
 
   document.getElementById('progress').textContent = 'Question ' + state.position + ' of ' + state.total;
   document.getElementById('q-text').textContent = state.current.question_text;
+  updateVideo(state.current.video_url || null);
 
   const opts = state.current.options;
   const counts = state.counts || opts.map(() => 0);
@@ -179,6 +226,9 @@ function startPolling() {
 
 document.getElementById('btn-start').addEventListener('click', async () => {
   if (!confirm('Start presenting? This clears any previous results for this quiz.')) return;
+  // Fire fullscreen synchronously within this click handler — browsers require a real
+  // user gesture for the Fullscreen API and won't allow it once an await has yielded.
+  enterFullscreen();
   const r = await fetch('/api/quizzes/' + slug + '/start', { method: 'POST' });
   const d = await r.json();
   if (!r.ok) { alert(d.error || 'Could not start'); return; }
@@ -205,6 +255,7 @@ document.getElementById('btn-reveal-answer').addEventListener('click', async () 
 document.getElementById('btn-end').addEventListener('click', async () => {
   if (!confirm('End this session? Voters will see "waiting for host" until you start again.')) return;
   await fetch('/api/quizzes/' + slug + '/end', { method: 'POST' });
+  exitFullscreen();
   poll();
 });
 

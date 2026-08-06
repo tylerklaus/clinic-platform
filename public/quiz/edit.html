@@ -66,21 +66,24 @@ main{max-width:760px;margin:0 auto;padding:28px 24px;}
 const slug = location.pathname.split('/quiz/')[1].split('/')[0];
 document.getElementById('present-link').href = '/quiz/' + slug + '/present';
 let questions = [];
+let sharedVideos = [];
 let saveTimer = null;
 
 function newOption() { return ''; }
 function newQuestion() {
-  return { question_text: '', options: ['', ''], correct_index: null };
+  return { question_text: '', options: ['', ''], correct_index: null, video_url: null };
 }
 
 async function load() {
-  const [qr, qsr] = await Promise.all([
+  const [qr, qsr, vr] = await Promise.all([
     fetch('/api/quizzes/' + slug),
-    fetch('/api/quizzes/' + slug + '/questions')
+    fetch('/api/quizzes/' + slug + '/questions'),
+    fetch('/api/quizzes/' + slug + '/videos')
   ]);
   if (!qr.ok) { alert('Quiz not found'); location.href = '/'; return; }
   const quiz = await qr.json();
   questions = await qsr.json();
+  sharedVideos = vr.ok ? await vr.json() : [];
   document.title = 'Edit: ' + quiz.title + ' — Clinic';
   document.getElementById('quiz-title').value = quiz.title;
   render();
@@ -164,6 +167,24 @@ function render() {
     });
     pollLabel.append(pollCheck, document.createTextNode('Opinion poll (no correct answer)'));
     footer.appendChild(pollLabel);
+
+    const videoWrap = document.createElement('div');
+    videoWrap.style.cssText = 'display:flex;align-items:center;gap:6px;';
+    const videoIcon = document.createElement('i'); videoIcon.className = 'ti ti-movie'; videoIcon.style.cssText = 'color:var(--text2);font-size:14px;';
+    const videoSelect = document.createElement('select');
+    videoSelect.style.cssText = 'background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text);font-size:11.5px;font-family:inherit;max-width:220px;';
+    const noneOpt = document.createElement('option'); noneOpt.value = ''; noneOpt.textContent = 'No video';
+    videoSelect.appendChild(noneOpt);
+    sharedVideos.forEach(v => {
+      const o = document.createElement('option');
+      o.value = v.url; o.textContent = v.original_name;
+      if (q.video_url === v.url) o.selected = true;
+      videoSelect.appendChild(o);
+    });
+    videoSelect.addEventListener('change', () => { q.video_url = videoSelect.value || null; scheduleSave(); });
+    videoWrap.append(videoIcon, videoSelect);
+    footer.appendChild(videoWrap);
+
     optsWrap.appendChild(footer);
 
     card.append(head, optsWrap);
