@@ -163,7 +163,7 @@ html,body{height:100%;background:#000;color:#fff;font-family:"Segoe UI",system-u
   <div id="sp-list"></div>
 </div>
 
-<script src="/assets/renderer.js?v=7"></script>
+<script src="/assets/renderer.js?v=8"></script>
 <script src="/assets/volleyball-trainer.js?v=3"></script>
 <script>
 let slug=location.pathname.split("/p/")[1];
@@ -267,7 +267,7 @@ function landOnCurrentSlide(guard){
   // Checked before showSlide() so the toolbar keeps showing the slide the presenter
   // was just on — instead of flashing "Jump → X" — while the target deck loads.
   if(s&&s.type==="jump"){
-    performJump(s.data&&s.data.jumpTargetSlug, (s.data&&s.data.jumpTargetIndex)||0, guard||0);
+    performJump(s.data||{}, guard||0);
     return;
   }
   showSlide(currentSlide);
@@ -276,11 +276,21 @@ function landOnCurrentSlide(guard){
   preloadAhead(currentSlide+1, 2);
 }
 
-function performJump(targetSlug, targetIndex, guard){
+// Quiz jumps leave this page entirely — quizzes are a separate app (own polling,
+// own fullscreen flow, own "Start Presenting" reset-confirmation) with no shared
+// rendering with the slide deck, so there's no seamless in-page way to continue.
+// They land on the quiz's presenter lobby rather than auto-starting, so an already
+//-in-progress quiz never has its votes silently wiped by just reaching this slide.
+function performJump(jumpData, guard){
+  const targetSlug=jumpData.jumpTargetSlug;
+  if(!targetSlug){ console.error('Jump slide has no target set'); return; }
+  if(jumpData.jumpType==="quiz"){
+    window.location.href='/quiz/'+targetSlug+'/present';
+    return;
+  }
   guard=(guard||0)+1;
-  if(!targetSlug){ console.error('Jump slide has no target presentation set'); return; }
   if(guard>8){ console.error('Jump chain aborted — too many chained jump slides'); return; }
-  return enterDeck(targetSlug, targetIndex, {guard});
+  return enterDeck(targetSlug, jumpData.jumpTargetIndex||0, {guard});
 }
 
 async function init(){

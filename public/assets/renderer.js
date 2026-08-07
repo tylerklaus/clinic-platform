@@ -428,7 +428,7 @@ function renderSlideContent(slide, container) {
     const icon = el('div',`font-size:${56*sc}px;color:${GOLD};line-height:1;`);
     icon.textContent = '⇥';
     const eyebrow2 = el('div',`font-size:${12*sc}px;font-weight:700;color:${GOLD};letter-spacing:${3*sc}px;text-transform:uppercase;`);
-    eyebrow2.textContent = 'Jump to another presentation';
+    eyebrow2.textContent = d.jumpType === 'quiz' ? 'Jump to a quiz' : 'Jump to another presentation';
     const targetTitle = el('div',`font-size:${28*sc}px;font-weight:800;color:#fff;`);
     targetTitle.textContent = d.jumpTargetTitle || 'No target selected';
     wrap.append(icon, eyebrow2, targetTitle);

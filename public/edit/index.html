@@ -410,6 +410,8 @@ html, body {
 
 <!-- TOOLBAR -->
 <div id="toolbar">
+  <a href="/" class="tb-btn" title="Back to dashboard"><i class="ti ti-home"></i></a>
+  <div class="tb-sep"></div>
   <button class="tb-btn" id="tb-prev"><i class="ti ti-chevron-left"></i> Prev</button>
   <button class="tb-btn primary" id="tb-next">Next <i class="ti ti-chevron-right"></i></button>
   <div class="tb-sep"></div>
@@ -432,9 +434,14 @@ html, body {
 <div id="editor-panel">
   <div id="ep-header">
     <h2>Edit Slides</h2>
-    <button class="tb-btn" id="ep-close" style="padding:0 10px; height:30px; font-size:12px;">
-      <i class="ti ti-x"></i> Close
-    </button>
+    <div style="display:flex; gap:6px;">
+      <button class="tb-btn" id="ep-export-pdf" title="Export slides as PDF" style="padding:0 10px; height:30px; font-size:12px;">
+        <i class="ti ti-file-type-pdf"></i> Export PDF
+      </button>
+      <button class="tb-btn" id="ep-close" style="padding:0 10px; height:30px; font-size:12px;">
+        <i class="ti ti-x"></i> Close
+      </button>
+    </div>
   </div>
   <div id="ep-scroll">
     <div style="font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Slides</div>
@@ -632,18 +639,36 @@ html, body {
 
     <!-- JUMP fields -->
     <div class="ep-group" id="epg-jump">
-      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">This slide never appears during presenting — the moment it's reached, the presentation instantly continues in the target deck below.</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">This slide never appears during presenting — the moment it's reached, the presentation instantly continues at the target below.</div>
       <div class="ep-field">
-        <label>Jump to presentation</label>
-        <select id="ep-jump-target" style="width:100%;">
-          <option value="">— select a presentation —</option>
+        <label>Jump to</label>
+        <select id="ep-jump-type" style="width:100%;">
+          <option value="presentation">Another presentation</option>
+          <option value="quiz">A quiz</option>
         </select>
       </div>
-      <div class="ep-field">
-        <label>Starting slide <span style="opacity:.5;font-weight:400;">(where to land in that deck)</span></label>
-        <select id="ep-jump-slide" style="width:100%;" disabled>
-          <option value="0">Slide 1</option>
-        </select>
+      <div id="ep-jump-presentation-fields">
+        <div class="ep-field">
+          <label>Presentation</label>
+          <select id="ep-jump-target" style="width:100%;">
+            <option value="">— select a presentation —</option>
+          </select>
+        </div>
+        <div class="ep-field">
+          <label>Starting slide <span style="opacity:.5;font-weight:400;">(where to land in that deck)</span></label>
+          <select id="ep-jump-slide" style="width:100%;" disabled>
+            <option value="0">Slide 1</option>
+          </select>
+        </div>
+      </div>
+      <div id="ep-jump-quiz-fields" style="display:none;">
+        <div class="ep-field">
+          <label>Quiz</label>
+          <select id="ep-jump-quiz" style="width:100%;">
+            <option value="">— select a quiz —</option>
+          </select>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.3);">Lands on the quiz's presenter screen with the QR code up — you click "Start Presenting" there when ready, same as starting it any other time.</div>
       </div>
     </div>
 
@@ -656,8 +681,26 @@ html, body {
 
 <div id="toast"></div>
 <div id="editor-saving">Saving...</div>
-<script src="/assets/renderer.js?v=7"></script>
+
+<div id="pdf-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:999;align-items:center;justify-content:center;">
+  <div style="background:#1e1e32;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:28px;width:100%;max-width:360px;">
+    <div style="font-size:11px;font-weight:700;color:#F26522;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Export</div>
+    <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:18px;">Export slides as PDF</div>
+    <div id="pdf-choice" style="display:flex;flex-direction:column;gap:10px;">
+      <button class="tb-btn" id="pdf-1up" style="justify-content:center;">1 slide per page</button>
+      <button class="tb-btn" id="pdf-4up" style="justify-content:center;">4 slides per page</button>
+    </div>
+    <div id="pdf-progress" style="display:none;text-align:center;color:rgba(255,255,255,0.6);font-size:13px;margin:6px 0;">
+      Rendering slide <span id="pdf-progress-n">1</span> of <span id="pdf-progress-total">1</span>...
+    </div>
+    <button class="tb-btn" id="pdf-cancel" style="margin-top:16px;width:100%;justify-content:center;">Cancel</button>
+  </div>
+</div>
+
+<script src="/assets/renderer.js?v=8"></script>
 <script src="/assets/volleyball-trainer.js?v=3"></script>
+<script src="/assets/html2canvas.min.js"></script>
+<script src="/assets/jspdf.umd.min.js"></script>
 <script>
 
 /* ── STATE ── */
@@ -1123,20 +1166,25 @@ function renderSlideContent(slide, container) {
       s.appendChild(ph);
     }
 
-  // ── JUMP TO PRESENTATION ─────────────────────────────────────────────
+  // ── JUMP (TO PRESENTATION OR QUIZ) ────────────────────────────────────
   } else if (slide.type === 'jump') {
     s.style.background = NAVY;
+    const isQuiz = d.jumpType === 'quiz';
     const wrap = el('div','position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:40px;');
     const icon = el('div',`font-size:${56*sc}px;color:${GOLD};line-height:1;`);
     icon.textContent = '⇥';
     const eyebrow2 = el('div',`font-size:${12*sc}px;font-weight:700;color:${GOLD};letter-spacing:${3*sc}px;text-transform:uppercase;`);
-    eyebrow2.textContent = 'Jump to another presentation';
+    eyebrow2.textContent = isQuiz ? 'Jump to a quiz' : 'Jump to another presentation';
     const targetTitle = el('div',`font-size:${28*sc}px;font-weight:800;color:#fff;`);
     targetTitle.textContent = d.jumpTargetTitle || 'No target selected yet';
     const sub = el('div',`font-size:${14*sc}px;color:rgba(255,255,255,0.4);`);
-    sub.textContent = d.jumpTargetSlug
-      ? ('Starts at: ' + (d.jumpTargetSlideTitle || ('Slide ' + ((d.jumpTargetIndex||0)+1))))
-      : 'Pick a presentation in the panel on the right';
+    if (isQuiz) {
+      sub.textContent = d.jumpTargetSlug ? 'Lands on the quiz\'s presenter screen, ready to start' : 'Pick a quiz in the panel on the right';
+    } else {
+      sub.textContent = d.jumpTargetSlug
+        ? ('Starts at: ' + (d.jumpTargetSlideTitle || ('Slide ' + ((d.jumpTargetIndex||0)+1))))
+        : 'Pick a presentation in the panel on the right';
+    }
     const note = el('div',`font-size:${12*sc}px;color:rgba(255,255,255,0.25);font-style:italic;margin-top:${16*sc}px;max-width:${420*sc}px;`);
     note.textContent = "This slide is only visible here in the editor — while presenting, reaching it jumps instantly and is never shown on screen.";
     wrap.append(icon, eyebrow2, targetTitle, sub, note);
@@ -1481,6 +1529,103 @@ function toast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+/* ── PDF EXPORT ── */
+document.getElementById('ep-export-pdf').addEventListener('click', () => {
+  document.getElementById('pdf-overlay').style.display = 'flex';
+  document.getElementById('pdf-choice').style.display = 'flex';
+  document.getElementById('pdf-progress').style.display = 'none';
+});
+document.getElementById('pdf-cancel').addEventListener('click', () => {
+  document.getElementById('pdf-overlay').style.display = 'none';
+});
+document.getElementById('pdf-1up').addEventListener('click', () => exportSlidesToPdf(1));
+document.getElementById('pdf-4up').addEventListener('click', () => exportSlidesToPdf(4));
+
+async function exportSlidesToPdf(perPage) {
+  // Jump slides are never meant to be seen — leave them out of the printed deck too.
+  const indices = slides.map((s, i) => i).filter(i => slides[i].type !== 'jump');
+  if (!indices.length) { alert('No slides to export.'); return; }
+
+  document.getElementById('pdf-choice').style.display = 'none';
+  document.getElementById('pdf-progress').style.display = 'block';
+  document.getElementById('pdf-progress-total').textContent = indices.length;
+
+  // rcImageSrc/photoImageSrc are keyed by slide index but only get populated as the
+  // editor visits each slide — pre-warm them from the actual saved slide data so an
+  // export right after loading (before clicking through every slide) still has every
+  // photo, not just the ones already visited this session.
+  slides.forEach((s, i) => {
+    if (s.type === 'rulechange' && s.data && s.data.rcImage) rcImageSrc[i] = s.data.rcImage;
+    if (s.type === 'photo' && s.data && s.data.photoImage) photoImageSrc[i] = s.data.photoImage;
+  });
+
+  const EXPORT_W = 1600, EXPORT_H = 900;
+  const exportContainer = document.createElement('div');
+  exportContainer.style.cssText = `position:fixed;left:-99999px;top:0;width:${EXPORT_W}px;height:${EXPORT_H}px;overflow:hidden;`;
+  document.body.appendChild(exportContainer);
+
+  const savedCurrentSlide = currentSlide;
+  const savedTitleLogoSrc = titleLogoSrc;
+  const images = [];
+  const titles = [];
+  try {
+    for (let n = 0; n < indices.length; n++) {
+      const i = indices[n];
+      document.getElementById('pdf-progress-n').textContent = n + 1;
+      // renderSlideContent reads rcImageSrc[currentSlide]/photoImageSrc[currentSlide]/
+      // titleLogoSrc off these globals rather than the slide argument — point them at
+      // the slide actually being exported so each page gets its own photo/logo.
+      currentSlide = i;
+      titleLogoSrc = (slides[i].data && slides[i].data.titleLogo) || null;
+      renderSlideContent(slides[i], exportContainer);
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const canvas = await html2canvas(exportContainer, { width: EXPORT_W, height: EXPORT_H, backgroundColor: '#000', logging: false });
+      images.push(canvas.toDataURL('image/jpeg', 0.85));
+      titles.push(slides[i].title || '');
+    }
+  } finally {
+    currentSlide = savedCurrentSlide;
+    titleLogoSrc = savedTitleLogoSrc;
+    exportContainer.remove();
+  }
+
+  const { jsPDF } = window.jspdf;
+  let doc;
+  if (perPage === 1) {
+    doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [10, 5.625] });
+    images.forEach((img, i) => {
+      if (i > 0) doc.addPage([10, 5.625], 'landscape');
+      doc.addImage(img, 'JPEG', 0, 0, 10, 5.625);
+    });
+  } else {
+    doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: 'letter' });
+    const margin = 0.4, gap = 0.3;
+    const pageW = 11, pageH = 8.5;
+    const cellW = (pageW - margin * 2 - gap) / 2;
+    const cellH = (pageH - margin * 2 - gap) / 2;
+    const imgW = cellW, imgH = cellW * 9 / 16;
+    const positions = [[0, 0], [1, 0], [0, 1], [1, 1]];
+    images.forEach((img, i) => {
+      const posIdx = i % 4;
+      if (posIdx === 0 && i > 0) doc.addPage('letter', 'landscape');
+      const [col, row] = positions[posIdx];
+      const x = margin + col * (cellW + gap);
+      const yTop = margin + row * (cellH + gap);
+      const y = yTop + (cellH - imgH) / 2;
+      doc.addImage(img, 'JPEG', x, y, imgW, imgH);
+      doc.setFontSize(9);
+      doc.setTextColor(120);
+      const label = (i + 1) + '. ' + (titles[i] || '').slice(0, 40);
+      doc.text(label, x, y + imgH + 0.12);
+    });
+  }
+
+  const filenameBase = (document.title || 'presentation').replace(/[^a-z0-9]+/gi, '-').toLowerCase().replace(/^-+|-+$/g, '');
+  doc.save((filenameBase || 'presentation') + '-' + (perPage === 1 ? '1up' : '4up') + '.pdf');
+
+  document.getElementById('pdf-overlay').style.display = 'none';
+}
+
 /* ── EDITOR ── */
 document.getElementById('tb-edit').addEventListener('click', () => {
   const panel = document.getElementById('editor-panel');
@@ -1575,7 +1720,7 @@ function populateEditor() {
     updatePhotoImgUI();
     g('ep-photo-fit').value = d.photoFit || 'cover';
   } else if (s.type === 'jump') {
-    populateJumpPickers(d.jumpTargetSlug || '', d.jumpTargetIndex || 0);
+    populateJumpPickers(d);
   }
   // Sync step-reveal checkbox for emphasis / discussion
   const revealTypes = { emphasis: 'ep-step-reveal-em', discussion: 'ep-step-reveal-disc' };
@@ -1784,18 +1929,32 @@ g('ep-save').addEventListener('click', () => {
   } else if (type === 'rulechange') {
     data.rcRule = g('ep-rc-rule').value;
   } else if (type === 'jump') {
-    const targetSel = g('ep-jump-target');
-    const targetOpt = targetSel.selectedOptions[0];
-    const slideSel = g('ep-jump-slide');
-    const slideOpt = slideSel.selectedOptions[0];
-    data.jumpTargetSlug = targetSel.value || '';
-    data.jumpTargetTitle = (data.jumpTargetSlug && targetOpt) ? targetOpt.textContent : '';
-    data.jumpTargetIndex = data.jumpTargetSlug ? parseInt(slideSel.value || '0', 10) : 0;
-    data.jumpTargetSlideTitle = (data.jumpTargetSlug && slideOpt) ? slideOpt.textContent : '';
+    const jumpType = g('ep-jump-type').value === 'quiz' ? 'quiz' : 'presentation';
+    data.jumpType = jumpType;
+    if (jumpType === 'quiz') {
+      const quizSel = g('ep-jump-quiz');
+      const quizOpt = quizSel.selectedOptions[0];
+      data.jumpTargetSlug = quizSel.value || '';
+      data.jumpTargetTitle = (data.jumpTargetSlug && quizOpt) ? quizOpt.textContent : '';
+      data.jumpTargetIndex = 0;
+      data.jumpTargetSlideTitle = '';
+    } else {
+      const targetSel = g('ep-jump-target');
+      const targetOpt = targetSel.selectedOptions[0];
+      const slideSel = g('ep-jump-slide');
+      const slideOpt = slideSel.selectedOptions[0];
+      data.jumpTargetSlug = targetSel.value || '';
+      data.jumpTargetTitle = (data.jumpTargetSlug && targetOpt) ? targetOpt.textContent : '';
+      data.jumpTargetIndex = data.jumpTargetSlug ? parseInt(slideSel.value || '0', 10) : 0;
+      data.jumpTargetSlideTitle = (data.jumpTargetSlug && slideOpt) ? slideOpt.textContent : '';
+    }
   }
 
   let title = slide.title || type;
-  if (type === 'jump') title = data.jumpTargetSlug ? ('Jump → ' + data.jumpTargetTitle) : 'Jump to Presentation';
+  if (type === 'jump') {
+    if (!data.jumpTargetSlug) title = 'Jump to Presentation';
+    else title = 'Jump → ' + (data.jumpType === 'quiz' ? 'Quiz: ' : '') + data.jumpTargetTitle;
+  }
   slides[currentSlide] = { type, title, body: slide.body || '', rule: slide.rule || '', data };
   saveSlides();
   showSlide(currentSlide);
@@ -1815,7 +1974,7 @@ g('ep-add').addEventListener('click', () => {
     statetitle: {type:'statetitle', title:'State Title', body:'', rule:'', data:{stEyebrow:'IHSA · Boys Volleyball', stTitle:'State Title'}},
     volleyball: {type:'volleyball', title:'Rotation & Overlap Trainer', body:'', rule:'', data:{}},
     photo: {type:'photo', title:'Photo', body:'', rule:'', data:{photoFit:'cover'}},
-    jump: {type:'jump', title:'Jump to Presentation', body:'', rule:'', data:{jumpTargetSlug:'', jumpTargetIndex:0}},
+    jump: {type:'jump', title:'Jump to Presentation', body:'', rule:'', data:{jumpType:'presentation', jumpTargetSlug:'', jumpTargetIndex:0}},
   };
   const newSlide = JSON.parse(JSON.stringify(defaults[type] || defaults.video));
   slides.splice(currentSlide+1, 0, newSlide);
@@ -1908,16 +2067,46 @@ async function populateJumpTargetSlides(targetSlug, selectedIndex) {
   }
 }
 
-async function populateJumpPickers(selectedSlug, selectedIndex) {
+// Cached across calls, same reasoning as loadAvailablePresentations.
+let availableQuizzes = null;
+async function loadAvailableQuizzes() {
+  if (availableQuizzes) return availableQuizzes;
+  try {
+    const r = await fetch('/api/quizzes');
+    availableQuizzes = await r.json();
+  } catch (e) { availableQuizzes = []; }
+  return availableQuizzes;
+}
+
+function showJumpTypeFields(type) {
+  g('ep-jump-presentation-fields').style.display = type === 'quiz' ? 'none' : 'block';
+  g('ep-jump-quiz-fields').style.display = type === 'quiz' ? 'block' : 'none';
+}
+
+async function populateJumpPickers(d) {
+  const type = d.jumpType === 'quiz' ? 'quiz' : 'presentation';
+  g('ep-jump-type').value = type;
+  showJumpTypeFields(type);
+
   const targetSel = g('ep-jump-target');
   const presentations = await loadAvailablePresentations();
   targetSel.innerHTML = '<option value="">— select a presentation —</option>';
   presentations.forEach(p => {
-    targetSel.appendChild(new Option(p.title, p.slug, false, p.slug === selectedSlug));
+    targetSel.appendChild(new Option(p.title, p.slug, false, type === 'presentation' && p.slug === d.jumpTargetSlug));
   });
-  await populateJumpTargetSlides(selectedSlug, selectedIndex);
+  await populateJumpTargetSlides(type === 'presentation' ? d.jumpTargetSlug : '', d.jumpTargetIndex || 0);
+
+  const quizSel = g('ep-jump-quiz');
+  const quizzes = await loadAvailableQuizzes();
+  quizSel.innerHTML = '<option value="">— select a quiz —</option>';
+  quizzes.forEach(q => {
+    quizSel.appendChild(new Option(q.title, q.slug, false, type === 'quiz' && q.slug === d.jumpTargetSlug));
+  });
 }
 
+document.getElementById('ep-jump-type').addEventListener('change', () => {
+  showJumpTypeFields(g('ep-jump-type').value);
+});
 document.getElementById('ep-jump-target').addEventListener('change', () => {
   populateJumpTargetSlides(g('ep-jump-target').value, 0);
 });
