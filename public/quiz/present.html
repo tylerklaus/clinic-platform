@@ -88,10 +88,10 @@ header h1{font-size:15px;font-weight:700;color:#fff;flex:1;overflow:hidden;text-
   </div>
   <div id="controls-bar">
     <div id="controls">
-      <button class="btn btn-ghost" id="btn-prev"><i class="ti ti-chevron-left"></i> Prev</button>
-      <button class="btn btn-primary" id="btn-reveal"></button>
-      <button class="btn btn-primary" id="btn-reveal-answer" style="background:#4caf82;color:#0f172a;display:none;"></button>
-      <button class="btn btn-ghost" id="btn-next">Next <i class="ti ti-chevron-right"></i></button>
+      <button class="btn btn-ghost" id="btn-prev" title="Previous question ([)"><i class="ti ti-chevron-left"></i> Prev</button>
+      <button class="btn btn-primary" id="btn-reveal" title="Space"></button>
+      <button class="btn btn-primary" id="btn-reveal-answer" style="background:#4caf82;color:#0f172a;display:none;" title="Space"></button>
+      <button class="btn btn-ghost" id="btn-next" title="Next question (])"><i class="ti ti-chevron-right"></i> Next</button>
       <button class="btn btn-ghost" id="btn-end" style="margin-left:20px;"><i class="ti ti-square-x"></i> End Session</button>
     </div>
   </div>
@@ -197,7 +197,10 @@ async function loadMeta() {
 
 function fmtCount(n) { return n === 1 ? '1 vote' : n + ' votes'; }
 
+let lastState = null;
+
 function renderState(state) {
+  lastState = state;
   const isLive = !!state.current;
   sessionLive = isLive;
   document.getElementById('lobby').style.display = isLive ? 'none' : 'flex';
@@ -304,6 +307,33 @@ document.getElementById('btn-end').addEventListener('click', async () => {
   intentionalFsExit = true;
   exitFullscreen();
   poll();
+});
+
+// Keyboard shortcuts — [ / ] step through questions, Space advances the reveal
+// (results first, then the correct answer on a second press if this question has one),
+// mirroring the slide-deck presentation view's [ ] and Space conventions.
+document.addEventListener('keydown', (e) => {
+  const tag = document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (!sessionLive) return;
+  if (e.key === '[') {
+    e.preventDefault();
+    const btn = document.getElementById('btn-prev');
+    if (!btn.disabled) btn.click();
+  } else if (e.key === ']') {
+    e.preventDefault();
+    const btn = document.getElementById('btn-next');
+    if (!btn.disabled) btn.click();
+  } else if (e.code === 'Space') {
+    e.preventDefault();
+    if (!lastState) return;
+    if (!lastState.revealed) {
+      document.getElementById('btn-reveal').click();
+    } else if (lastState.current && lastState.current.hasCorrectAnswer && !lastState.answerRevealed) {
+      const ansBtn = document.getElementById('btn-reveal-answer');
+      if (!ansBtn.disabled) ansBtn.click();
+    }
+  }
 });
 
 renderQr(document.getElementById('qr-big'), 7);
