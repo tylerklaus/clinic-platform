@@ -334,6 +334,7 @@ html, body {
 .dot-volleyball { background: #f59e0b; }
 .dot-photo { background: #4caf82; }
 .dot-jump { background: #8b5cf6; }
+.dot-closing { background: #666; }
 
 #ep-footer { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -463,6 +464,7 @@ html, body {
         <option value="volleyball">Volleyball rotation trainer</option>
         <option value="photo">Full photo</option>
         <option value="jump">Jump to another presentation</option>
+        <option value="closing">Closing / Thank You</option>
       </select>
     </div>
 
@@ -672,6 +674,11 @@ html, body {
       </div>
     </div>
 
+    <!-- CLOSING fields -->
+    <div class="ep-group" id="epg-closing">
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly. Add contact info (name, email, phone, etc.) one item per line — each line shrinks to fit on one line rather than wrapping, so a long email still looks clean.</div>
+    </div>
+
     <div id="ep-footer">
     <button class="tb-btn primary" id="ep-save"><i class="ti ti-check"></i> Save</button>
     <button class="tb-btn" id="ep-add"><i class="ti ti-plus"></i> Add slide</button>
@@ -697,7 +704,7 @@ html, body {
   </div>
 </div>
 
-<script src="/assets/renderer.js?v=8"></script>
+<script src="/assets/renderer.js?v=10"></script>
 <script src="/assets/volleyball-trainer.js?v=3"></script>
 <script src="/assets/html2canvas.min.js"></script>
 <script src="/assets/jspdf.umd.min.js"></script>
@@ -820,8 +827,9 @@ function renderSlideContent(slide, container) {
       tt.style.wordBreak='break-word';
       tt.dataset.field='title'; tt.dataset.placeholder='Click to add title'; if(d.title||slide.title){tt.textContent=d.title||slide.title;}else{tt.textContent='Click to add title';tt.dataset.isEmpty='1';tt.style.opacity='0.35';tt.style.fontStyle='italic';}
       const divL = el('div',`position:absolute;left:${L*sc}px;bottom:${108*sc}px;width:${40*sc}px;height:${4*sc}px;background:${GOLD};border-radius:2px;`);
-      const sub = el('div',`position:absolute;left:${L*sc}px;bottom:${48*sc}px;right:${428*sc}px;font-size:${16*sc}px;color:rgba(255,255,255,0.4);line-height:1.5;`);
-      sub.style.whiteSpace='pre-line';
+      const sub = el('div',`position:absolute;left:${L*sc}px;bottom:${48*sc}px;right:${428*sc}px;font-size:${16*sc}px;color:rgba(255,255,255,0.4);line-height:1.5;overflow:hidden;`);
+      sub.style.whiteSpace='pre';
+      sub.dataset.autofit='1';
       sub.dataset.field='subtitle'; sub.dataset.placeholder='Click to add subtitle'; const _subtitleVal=d.subtitle||slide.body||''; if(_subtitleVal){sub.textContent=_subtitleVal;}else{sub.textContent='Click to add subtitle';sub.dataset.isEmpty='1';sub.style.opacity='0.35';sub.style.fontStyle='italic';}
       s.append(ew, tt, divL, sub);
     } else {
@@ -832,8 +840,9 @@ function renderSlideContent(slide, container) {
       tt.style.wordBreak='break-word';
       tt.dataset.field='title'; tt.dataset.placeholder='Click to add title'; if(d.title||slide.title){tt.textContent=d.title||slide.title;}else{tt.textContent='Click to add title';tt.dataset.isEmpty='1';tt.style.opacity='0.35';tt.style.fontStyle='italic';}
       const div = el('div',`position:absolute;left:${L*sc}px;bottom:${108*sc}px;width:${48*sc}px;height:${4*sc}px;background:${GOLD};border-radius:2px;`);
-      const sub = el('div',`position:absolute;left:${L*sc}px;bottom:${48*sc}px;right:${140*sc}px;font-size:${19*sc}px;color:rgba(255,255,255,0.45);line-height:1.5;`);
-      sub.style.whiteSpace='pre-line';
+      const sub = el('div',`position:absolute;left:${L*sc}px;bottom:${48*sc}px;right:${140*sc}px;font-size:${19*sc}px;color:rgba(255,255,255,0.45);line-height:1.5;overflow:hidden;`);
+      sub.style.whiteSpace='pre';
+      sub.dataset.autofit='1';
       sub.dataset.field='subtitle'; sub.dataset.placeholder='Click to add subtitle'; const _subtitleVal=d.subtitle||slide.body||''; if(_subtitleVal){sub.textContent=_subtitleVal;}else{sub.textContent='Click to add subtitle';sub.dataset.isEmpty='1';sub.style.opacity='0.35';sub.style.fontStyle='italic';}
       s.append(ew, tt, div, sub);
     }
@@ -1136,7 +1145,8 @@ function renderSlideContent(slide, container) {
     const mainTitle=el('div',`position:absolute;left:${28*sc}px;top:${h*0.22}px;right:${mainRight}px;font-size:${62*sc}px;font-weight:800;color:#fff;line-height:0.93;letter-spacing:${-1*sc}px;word-break:break-word;`);
     mainTitle.dataset.field='stTitle'; mainTitle.dataset.placeholder='State Title'; const _stt=d.stTitle||slide.title||''; if(_stt){mainTitle.textContent=_stt;}else{mainTitle.textContent='State Title';mainTitle.dataset.isEmpty='1';mainTitle.style.opacity='0.4';}
     const divBar=el('div',`position:absolute;left:${28*sc}px;bottom:${88*sc}px;width:${44*sc}px;height:${4*sc}px;background:${GOLD};border-radius:2px;`);
-    const bodyEl=el('div',`position:absolute;left:${28*sc}px;bottom:${28*sc}px;right:${mainRight}px;font-size:${15*sc}px;color:rgba(255,255,255,0.4);line-height:1.6;white-space:pre-line;min-height:${20*sc}px;`);
+    const bodyEl=el('div',`position:absolute;left:${28*sc}px;bottom:${28*sc}px;right:${mainRight}px;font-size:${15*sc}px;color:rgba(255,255,255,0.4);line-height:1.6;white-space:pre;overflow:hidden;min-height:${20*sc}px;`);
+    bodyEl.dataset.autofit='1';
     bodyEl.dataset.field='stBody'; bodyEl.dataset.placeholder='Subtitle or supporting text...'; const _stb=d.stBody||''; if(_stb){bodyEl.textContent=_stb;}else{bodyEl.textContent='Subtitle or supporting text...';bodyEl.dataset.isEmpty='1';bodyEl.style.opacity='0.3';bodyEl.style.fontStyle='italic';}
     s.append(sidePanel, eyeW, mainTitle, divBar, bodyEl);
 
@@ -1189,6 +1199,79 @@ function renderSlideContent(slide, container) {
     note.textContent = "This slide is only visible here in the editor — while presenting, reaching it jumps instantly and is never shown on screen.";
     wrap.append(icon, eyebrow2, targetTitle, sub, note);
     s.appendChild(wrap);
+
+  // ── CLOSING / THANK YOU ─────────────────────────────────────────────────
+  } else if (slide.type === 'closing') {
+    s.style.background = NAVY;
+    s.appendChild(el('div',`position:absolute;left:0;top:0;bottom:0;width:${10*sc}px;background:${GOLD};`));
+    s.appendChild(el('div',`position:absolute;right:${-90*sc}px;top:${-90*sc}px;width:${400*sc}px;height:${400*sc}px;border-radius:50%;border:${6*sc}px solid rgba(242,101,34,0.2);`));
+    s.appendChild(el('div',`position:absolute;right:${-20*sc}px;top:${-20*sc}px;width:${240*sc}px;height:${240*sc}px;border-radius:50%;border:${5*sc}px solid rgba(242,101,34,0.14);`));
+
+    const centerWrap = el('div',`position:absolute;left:${60*sc}px;right:${60*sc}px;top:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:${16*sc}px;text-align:center;`);
+
+    const eyeC = el('div',`font-size:${13*sc}px;font-weight:700;color:${GOLD};letter-spacing:${3*sc}px;text-transform:uppercase;`);
+    eyeC.dataset.field='closeEyebrow'; eyeC.dataset.placeholder='Thank You';
+    const _ceyVal=d.closeEyebrow||''; if(_ceyVal){eyeC.textContent=_ceyVal;}else{eyeC.textContent='Thank You';eyeC.dataset.isEmpty='1';eyeC.style.opacity='0.6';}
+
+    const headC = el('div',`font-size:${58*sc}px;font-weight:800;color:#fff;line-height:1.05;letter-spacing:${-0.5*sc}px;word-break:break-word;`);
+    headC.dataset.field='closeHeading'; headC.dataset.placeholder='Thank You';
+    const _chVal=d.closeHeading||slide.title||''; if(_chVal){headC.textContent=_chVal;}else{headC.textContent='Thank You';headC.dataset.isEmpty='1';headC.style.opacity='0.4';}
+
+    const barC = el('div',`width:${48*sc}px;height:${4*sc}px;background:${GOLD};border-radius:2px;flex-shrink:0;`);
+
+    const msgC = el('div',`font-size:${18*sc}px;color:rgba(255,255,255,0.5);line-height:1.5;max-width:${560*sc}px;white-space:pre-wrap;min-height:${24*sc}px;`);
+    msgC.dataset.field='closeMessage'; msgC.dataset.placeholder='Add a closing message...';
+    const _cmVal=d.closeMessage||''; if(_cmVal){msgC.textContent=_cmVal;}else{msgC.textContent='Add a closing message...';msgC.dataset.isEmpty='1';msgC.style.opacity='0.3';msgC.style.fontStyle='italic';}
+
+    // Contact block: click to edit as plain text (one line per item), blur re-renders
+    // as dot-bulleted rows — same pattern as the discussion slide's bullet list, but
+    // each line is nowrap here so a long email shrinks to fit instead of wrapping.
+    const contactStyle = `display:flex;flex-direction:column;align-items:center;gap:${8*sc}px;max-width:${640*sc}px;overflow:hidden;margin-top:${4*sc}px;cursor:text;`;
+    const contactWrap = el('div', contactStyle);
+    contactWrap.dataset.field='closeContact';
+    contactWrap.dataset.autofit = '1';
+    const _renderContact = (area, lines) => {
+      area.innerHTML = '';
+      area.style.cssText = contactStyle;
+      const filled = lines.filter(l => l.trim());
+      if (filled.length) {
+        filled.forEach(line => {
+          const row = el('div','display:flex;align-items:center;gap:8px;');
+          const dot = el('div',`width:${6*sc}px;height:${6*sc}px;border-radius:50%;background:${GOLD};flex-shrink:0;`);
+          const txt = el('div',`font-size:${16*sc}px;color:rgba(255,255,255,0.7);white-space:nowrap;`);
+          txt.textContent = line;
+          row.append(dot, txt);
+          area.appendChild(row);
+        });
+      } else {
+        const ph = el('div',`font-size:${14*sc}px;color:rgba(255,255,255,0.25);font-style:italic;`);
+        ph.textContent = 'Click to add your name, email, or other contact info (one per line)...';
+        area.appendChild(ph);
+      }
+    };
+    _renderContact(contactWrap, (d.closeContact||'').split('\n'));
+    contactWrap.addEventListener('click', function() {
+      const raw = (slides[currentSlide].data && slides[currentSlide].data.closeContact) || '';
+      this.innerHTML = '';
+      this.style.cssText = `display:flex;flex-direction:column;max-width:${640*sc}px;margin:0 auto;font-size:${16*sc}px;color:rgba(255,255,255,0.85);line-height:1.6;white-space:pre-wrap;word-break:break-word;outline:2px solid rgba(242,101,34,0.9);background:rgba(242,101,34,0.08);border-radius:3px;padding:4px;text-align:left;`;
+      this.contentEditable = 'true';
+      this.spellcheck = false;
+      this.textContent = raw;
+      this.focus();
+    });
+    contactWrap.addEventListener('blur', function() {
+      this.contentEditable = 'false';
+      const raw = this.innerText.trim();
+      writeField(slides[currentSlide], 'closeContact', raw);
+      saveSlides();
+      _renderContact(this, raw.split('\n'));
+    });
+    contactWrap.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { this.blur(); }
+    });
+
+    centerWrap.append(eyeC, headC, barC, msgC, contactWrap);
+    s.appendChild(centerWrap);
   }
 
   container.appendChild(s);
@@ -1287,13 +1370,18 @@ function makeEditable(container, slide) {
         el.dataset.isEmpty = '';
         writeField(slide, field, el.innerText);
       }
-      const titleFields = ['title','vidTitle','revRuling','rcHeading','emHeader','discQ','cbTitle','stTitle'];
+      const titleFields = ['title','vidTitle','revRuling','rcHeading','emHeader','discQ','cbTitle','stTitle','closeHeading'];
       if (titleFields.includes(field) && newVal) {
         slide.title = newVal;
         document.getElementById('tb-slide-title').textContent = newVal;
         renderEditorList();
       }
       saveSlides();
+      // Auto-fit only runs at render time, and font-size shrinking doesn't grow back
+      // on its own — re-render from the freshly-saved text so a field that's now too
+      // long (or short again) settles at the right size immediately, not just the
+      // next time this slide happens to be shown.
+      if (el.dataset.autofit === '1') showSlide(currentSlide);
     });
 
     el.addEventListener('keydown', e => {
@@ -1354,6 +1442,11 @@ function buildFieldMap(slide) {
     add(d.stTitle || slide.title, 'stTitle');
     add(d.stBody || '', 'stBody');
     add(d.stSideText || '', 'stSideText');
+  } else if (slide.type === 'closing') {
+    add(d.closeEyebrow || 'Thank You', 'closeEyebrow');
+    add(d.closeHeading || slide.title, 'closeHeading');
+    add(d.closeMessage || '', 'closeMessage');
+    add(d.closeContact || '', 'closeContact');
   }
   return map;
 }
@@ -1362,7 +1455,7 @@ function writeField(slide, field, value) {
   if (!slide.data) slide.data = {};
   slide.data[field] = value;
   // Keep top-level slide fields in sync
-  if (field === 'title' || field === 'vidTitle' || field === 'revRuling' || field === 'stTitle') slide.title = value;
+  if (field === 'title' || field === 'vidTitle' || field === 'revRuling' || field === 'stTitle' || field === 'closeHeading') slide.title = value;
   if (field === 'revRule') slide.rule = value;
 }
 
@@ -1682,7 +1775,7 @@ function renderEditorList() {
 function g(id) { return document.getElementById(id); }
 
 function showGroups(type) {
-  ['title','video','reveal','rulechange','emphasis','discussion','casebook','statetitle','volleyball','photo','jump'].forEach(t => {
+  ['title','video','reveal','rulechange','emphasis','discussion','casebook','statetitle','volleyball','photo','jump','closing'].forEach(t => {
     const el = g('epg-' + t);
     if (el) el.style.display = t === type ? 'block' : 'none';
   });
@@ -1975,6 +2068,7 @@ g('ep-add').addEventListener('click', () => {
     volleyball: {type:'volleyball', title:'Rotation & Overlap Trainer', body:'', rule:'', data:{}},
     photo: {type:'photo', title:'Photo', body:'', rule:'', data:{photoFit:'cover'}},
     jump: {type:'jump', title:'Jump to Presentation', body:'', rule:'', data:{jumpType:'presentation', jumpTargetSlug:'', jumpTargetIndex:0}},
+    closing: {type:'closing', title:'Thank You', body:'', rule:'', data:{closeEyebrow:'Thank You', closeHeading:'Thank You'}},
   };
   const newSlide = JSON.parse(JSON.stringify(defaults[type] || defaults.video));
   slides.splice(currentSlide+1, 0, newSlide);

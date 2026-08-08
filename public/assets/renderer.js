@@ -110,9 +110,10 @@ function renderSlideContent(slide, container) {
       const divL = el('div',`position:absolute;left:${L*sc}px;bottom:${108*sc}px;width:${40*sc}px;height:${4*sc}px;background:${GOLD};border-radius:2px;`);
       // subtitle: split into reveal lines
       const subLines = (d.subtitle || slide.body || '').split('\n');
-      const subWrap = editable(el('div',`position:absolute;left:${L*sc}px;bottom:${48*sc}px;right:${428*sc}px;font-size:${16*sc}px;color:rgba(255,255,255,0.4);line-height:1.5;`),'subtitle','Subtitle or date');
+      const subWrap = editable(el('div',`position:absolute;left:${L*sc}px;bottom:${48*sc}px;right:${428*sc}px;font-size:${16*sc}px;color:rgba(255,255,255,0.4);line-height:1.5;overflow:hidden;`),'subtitle','Subtitle or date');
+      subWrap.dataset.autofit = '1';
       subLines.forEach((line) => {
-        const ln = el('div',''); ln.textContent = line;
+        const ln = el('div','white-space:nowrap;'); ln.textContent = line;
         subWrap.appendChild(ln);
       });
       s.append(ew, tt, divL, subWrap);
@@ -124,9 +125,10 @@ function renderSlideContent(slide, container) {
       tt.textContent = d.title || slide.title;
       const div = el('div',`position:absolute;left:${L*sc}px;bottom:${108*sc}px;width:${48*sc}px;height:${4*sc}px;background:${GOLD};border-radius:2px;`);
       const subLines = (d.subtitle || slide.body || '').split('\n');
-      const subWrap = editable(el('div',`position:absolute;left:${L*sc}px;bottom:${48*sc}px;right:${140*sc}px;font-size:${19*sc}px;color:rgba(255,255,255,0.45);line-height:1.5;`),'subtitle','Subtitle or date');
+      const subWrap = editable(el('div',`position:absolute;left:${L*sc}px;bottom:${48*sc}px;right:${140*sc}px;font-size:${19*sc}px;color:rgba(255,255,255,0.45);line-height:1.5;overflow:hidden;`),'subtitle','Subtitle or date');
+      subWrap.dataset.autofit = '1';
       subLines.forEach((line) => {
-        const ln = el('div',''); ln.textContent = line;
+        const ln = el('div','white-space:nowrap;'); ln.textContent = line;
         subWrap.appendChild(ln);
       });
       s.append(ew, tt, div, subWrap);
@@ -389,8 +391,9 @@ function renderSlideContent(slide, container) {
     const divBar=el('div',`position:absolute;left:${28*sc}px;bottom:${88*sc}px;width:${44*sc}px;height:${4*sc}px;background:${GOLD};border-radius:2px;`);
     // body lines as reveal lines
     const stBodyLines = (d.stBody||'').split('\n');
-    const stBodyWrap=editable(el('div',`position:absolute;left:${28*sc}px;bottom:${28*sc}px;right:${mainRight}px;font-size:${15*sc}px;color:rgba(255,255,255,0.4);line-height:1.6;`),'stBody','Subtitle or supporting text...');
-    stBodyLines.forEach((line)=>{ const ln=el('div','');ln.textContent=line;stBodyWrap.appendChild(ln); });
+    const stBodyWrap=editable(el('div',`position:absolute;left:${28*sc}px;bottom:${28*sc}px;right:${mainRight}px;font-size:${15*sc}px;color:rgba(255,255,255,0.4);line-height:1.6;overflow:hidden;`),'stBody','Subtitle or supporting text...');
+    stBodyWrap.dataset.autofit = '1';
+    stBodyLines.forEach((line)=>{ const ln=el('div','white-space:nowrap;');ln.textContent=line;stBodyWrap.appendChild(ln); });
     s.append(sidePanel, eyeW, mainTitle, divBar, stBodyWrap);
 
   // ── VOLLEYBALL ROTATION TRAINER ─────────────────────────────────────────
@@ -433,6 +436,50 @@ function renderSlideContent(slide, container) {
     targetTitle.textContent = d.jumpTargetTitle || 'No target selected';
     wrap.append(icon, eyebrow2, targetTitle);
     s.appendChild(wrap);
+
+  // ── CLOSING / THANK YOU ───────────────────────────────────────────────
+  } else if (slide.type === 'closing') {
+    s.style.background = NAVY;
+    s.appendChild(el('div',`position:absolute;left:0;top:0;bottom:0;width:${10*sc}px;background:${GOLD};`));
+    s.appendChild(el('div',`position:absolute;right:${-90*sc}px;top:${-90*sc}px;width:${400*sc}px;height:${400*sc}px;border-radius:50%;border:${6*sc}px solid rgba(242,101,34,0.2);`));
+    s.appendChild(el('div',`position:absolute;right:${-20*sc}px;top:${-20*sc}px;width:${240*sc}px;height:${240*sc}px;border-radius:50%;border:${5*sc}px solid rgba(242,101,34,0.14);`));
+
+    const centerWrap = el('div',`position:absolute;left:${60*sc}px;right:${60*sc}px;top:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:${16*sc}px;text-align:center;`);
+
+    const eyeC = editable(el('div',`font-size:${13*sc}px;font-weight:700;color:${GOLD};letter-spacing:${3*sc}px;text-transform:uppercase;`),'closeEyebrow','Thank You');
+    eyeC.textContent = d.closeEyebrow || 'Thank You';
+
+    const headC = editable(el('div',`font-size:${58*sc}px;font-weight:800;color:#fff;line-height:1.05;letter-spacing:${-0.5*sc}px;word-break:break-word;`),'closeHeading','Thank You');
+    headC.textContent = d.closeHeading || slide.title || 'Thank You';
+
+    const barC = el('div',`width:${48*sc}px;height:${4*sc}px;background:${GOLD};border-radius:2px;flex-shrink:0;`);
+
+    const msgLines = (d.closeMessage || '').split('\n');
+    const msgC = editable(el('div',`font-size:${18*sc}px;color:rgba(255,255,255,0.5);line-height:1.5;max-width:${560*sc}px;`),'closeMessage','Add a closing message...');
+    msgLines.forEach((line) => {
+      const ln = el('div','white-space:pre-wrap;'); ln.textContent = line;
+      msgC.appendChild(ln);
+    });
+
+    // Contact lines never wrap — a long email should shrink to fit on one line
+    // instead of breaking mid-address, so runAutoFit (below) can do its job.
+    const contactLines = (d.closeContact || '').split('\n');
+    const contactWrap = editable(el('div',`display:flex;flex-direction:column;align-items:center;gap:${8*sc}px;max-width:${640*sc}px;overflow:hidden;margin-top:${4*sc}px;`),'closeContact','Add your name, email, or other contact info (one per line)...');
+    contactWrap.dataset.autofit = '1';
+    if (contactLines.some(l => l.trim())) {
+      contactLines.forEach((line) => {
+        if (!line.trim()) return;
+        const row = el('div','display:flex;align-items:center;gap:8px;');
+        const dot = el('div',`width:${6*sc}px;height:${6*sc}px;border-radius:50%;background:${GOLD};flex-shrink:0;`);
+        const txt = el('div',`font-size:${16*sc}px;color:rgba(255,255,255,0.7);white-space:nowrap;`);
+        txt.textContent = line;
+        row.append(dot, txt);
+        contactWrap.appendChild(row);
+      });
+    }
+
+    centerWrap.append(eyeC, headC, barC, msgC, contactWrap);
+    s.appendChild(centerWrap);
   }
 
   container.appendChild(s);

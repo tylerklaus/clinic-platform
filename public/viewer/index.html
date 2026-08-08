@@ -130,7 +130,7 @@ html,body{height:100%;background:#000;color:#fff;font-family:"Segoe UI",system-u
   <a href="/" class="tb-btn"><i class="ti ti-home"></i></a>
   <div style="margin-left:auto;display:flex;gap:4px;align-items:center;">
     <span class="kbd">Space</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin:0 4px;">play</span>
-    <span class="kbd">[</span><span class="kbd">]</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin:0 4px;">slides</span>
+    <span class="kbd">[</span><span class="kbd">]</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin:0 4px;">or</span><span class="kbd">PgUp</span><span class="kbd">PgDn</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin:0 4px;">slides (clicker)</span>
   </div>
 </div>
 
@@ -163,7 +163,7 @@ html,body{height:100%;background:#000;color:#fff;font-family:"Segoe UI",system-u
   <div id="sp-list"></div>
 </div>
 
-<script src="/assets/renderer.js?v=8"></script>
+<script src="/assets/renderer.js?v=10"></script>
 <script src="/assets/volleyball-trainer.js?v=3"></script>
 <script>
 let slug=location.pathname.split("/p/")[1];
@@ -589,12 +589,12 @@ const TYPE_LABELS = {
   title:'Title', video:'Scenario', reveal:'Answer Reveal', rulechange:'Rule Change',
   emphasis:'Points of Emphasis', discussion:'Discussion',
   casebook:'Casebook', statetitle:'State Title',
-  volleyball:'Volleyball Trainer', photo:'Photo', jump:'Jump'
+  volleyball:'Volleyball Trainer', photo:'Photo', jump:'Jump', closing:'Closing'
 };
 const TYPE_COLORS = {
   title:'#666', video:'#F26522', reveal:'#4caf82', rulechange:'#e05a2b',
   emphasis:'#5b9bd5', discussion:'#e8b84b',
-  casebook:'#4caf82', statetitle:'#7ba7d4', jump:'#8b5cf6',
+  casebook:'#4caf82', statetitle:'#7ba7d4', jump:'#8b5cf6', closing:'#666',
   volleyball:'#f59e0b', photo:'#4caf82'
 };
 
@@ -656,8 +656,8 @@ document.addEventListener("keydown",function(e){
   if(e.code==="ArrowRight"&&!e.shiftKey){e.preventDefault();document.getElementById("vc-nextframe").click();}
   if(e.code==="ArrowLeft"&&e.shiftKey){e.preventDefault();document.getElementById("vc-back5").click();}
   if(e.code==="ArrowRight"&&e.shiftKey){e.preventDefault();document.getElementById("vc-fwd5").click();}
-  if(e.key==="["){e.preventDefault();document.getElementById("tb-prev").click();}
-  if(e.key==="]"){e.preventDefault();advanceNext();}
+  if(e.key==="["||e.key==="PageUp"){e.preventDefault();document.getElementById("tb-prev").click();}
+  if(e.key==="]"||e.key==="PageDown"){e.preventDefault();advanceNext();}
   if(e.key==="l"||e.key==="L")document.getElementById("vc-loop").click();
   if(e.key==="r"||e.key==="R"){if(video&&video.src){video.currentTime=0;video.play();}}
   if(e.key==="s"||e.key==="S"){
