@@ -682,6 +682,7 @@ html, body {
     <div id="ep-footer">
     <button class="tb-btn primary" id="ep-save"><i class="ti ti-check"></i> Save</button>
     <button class="tb-btn" id="ep-add"><i class="ti ti-plus"></i> Add slide</button>
+    <button class="tb-btn" id="ep-duplicate"><i class="ti ti-copy"></i> Duplicate</button>
     <button class="tb-btn danger" id="ep-delete"><i class="ti ti-trash"></i> Delete</button>
   </div>
 </div>
@@ -725,6 +726,20 @@ let rcImageSrc = {}; // rule change photos keyed by slide index
 let photoImageSrc = {}; // full-photo slide images keyed by slide index
 let titleLogoSrc = null;
 const video = document.getElementById('video-el');
+
+// rcImageSrc/photoImageSrc are keyed by array index, not slide identity — any time
+// slides are inserted, removed, or reordered, every index after the change point is
+// now stale and would show the wrong photo (or none) until that slide happened to be
+// revisited. Rebuilding from each slide's own saved data instead of patching indices
+// avoids that entirely. Call after any operation that changes slide order or count.
+function rebuildImageCaches() {
+  rcImageSrc = {};
+  photoImageSrc = {};
+  slides.forEach((s, i) => {
+    if (s.type === 'rulechange' && s.data && s.data.rcImage) rcImageSrc[i] = s.data.rcImage;
+    if (s.type === 'photo' && s.data && s.data.photoImage) photoImageSrc[i] = s.data.photoImage;
+  });
+}
 
 /* ── LAYOUT SIZING ── */
 function resizeFrame() {
@@ -1766,6 +1781,7 @@ function renderEditorList() {
       const moved = slides.splice(dragIdx, 1)[0];
       slides.splice(dropIdx, 0, moved);
       currentSlide = dropIdx;
+      rebuildImageCaches();
       saveSlides();
       showSlide(currentSlide);
     });
@@ -2077,11 +2093,25 @@ g('ep-add').addEventListener('click', () => {
   showSlide(currentSlide);
 });
 
+document.getElementById('ep-duplicate').addEventListener('click', () => {
+  const original = slides[currentSlide];
+  const clone = JSON.parse(JSON.stringify(original));
+  clone.title = original.title ? original.title + ' (Copy)' : clone.title;
+  const newIdx = currentSlide + 1;
+  slides.splice(newIdx, 0, clone);
+  currentSlide = newIdx;
+  rebuildImageCaches();
+  saveSlides();
+  showSlide(currentSlide);
+  toast('Slide duplicated');
+});
+
 document.getElementById('ep-delete').addEventListener('click', () => {
   if (slides.length <= 1) return;
   if (!confirm(`Delete "${slides[currentSlide].title}"?`)) return;
   slides.splice(currentSlide, 1);
   if (currentSlide >= slides.length) currentSlide = slides.length - 1;
+  rebuildImageCaches();
   saveSlides();
   showSlide(currentSlide);
 });
