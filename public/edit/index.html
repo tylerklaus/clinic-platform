@@ -335,6 +335,7 @@ html, body {
 .dot-photo { background: #4caf82; }
 .dot-jump { background: #8b5cf6; }
 .dot-closing { background: #666; }
+.dot-bullets { background: #5b9bd5; }
 
 #ep-footer { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -451,6 +452,11 @@ html, body {
     <div style="font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Edit selected slide</div>
 
     <div class="ep-field">
+      <label>Slide name <span style="opacity:.5;font-weight:400;">(shown in the slide list — set this any time, it won't get overwritten)</span></label>
+      <input type="text" id="ep-slide-name" placeholder="Name this slide...">
+    </div>
+
+    <div class="ep-field">
       <label>Slide type</label>
       <select id="ep-type">
         <option value="title">Title slide</option>
@@ -465,6 +471,7 @@ html, body {
         <option value="photo">Full photo</option>
         <option value="jump">Jump to another presentation</option>
         <option value="closing">Closing / Thank You</option>
+        <option value="bullets">Bullet list</option>
       </select>
     </div>
 
@@ -679,6 +686,29 @@ html, body {
       <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly. Add contact info (name, email, phone, etc.) one item per line — each line shrinks to fit on one line rather than wrapping, so a long email still looks clean.</div>
     </div>
 
+    <!-- BULLET LIST fields -->
+    <div class="ep-group" id="epg-bullets">
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px;">Click text on the slide to edit it directly. A bullet with no text won't show at all; a sub-bullet with no text just won't show under that bullet.</div>
+      <div class="ep-field">
+        <label>Image <span style="opacity:.5;font-weight:400;">(optional, shown on the left)</span></label>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <label style="cursor:pointer;padding:5px 12px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;font-size:12px;color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.05);">
+            <i class="ti ti-upload"></i> Upload image
+            <input type="file" id="ep-bl-img-input" accept="image/*" style="display:none;">
+          </label>
+          <span id="ep-bl-img-status" style="font-size:11px;color:rgba(255,255,255,0.4);">no image</span>
+          <button id="ep-bl-img-clear" style="display:none;font-size:11px;padding:4px 8px;border:1px solid rgba(255,80,80,0.3);border-radius:5px;background:none;color:#ff8080;cursor:pointer;">remove</button>
+        </div>
+        <div id="ep-bl-img-preview" style="margin-top:8px;"></div>
+      </div>
+      <div class="ep-field" style="border-top:1px solid rgba(255,255,255,0.08);margin-top:10px;padding-top:10px;">
+        <label style="text-transform:none;font-size:12px;font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="ep-step-reveal-bl" style="width:auto;accent-color:var(--gold);" onchange="toggleStepReveal(this.checked)">
+          Reveal bullets one at a time
+        </label>
+      </div>
+    </div>
+
     <div id="ep-footer">
     <button class="tb-btn primary" id="ep-save"><i class="ti ti-check"></i> Save</button>
     <button class="tb-btn" id="ep-add"><i class="ti ti-plus"></i> Add slide</button>
@@ -705,7 +735,7 @@ html, body {
   </div>
 </div>
 
-<script src="/assets/renderer.js?v=10"></script>
+<script src="/assets/renderer.js?v=11"></script>
 <script src="/assets/volleyball-trainer.js?v=3"></script>
 <script src="/assets/html2canvas.min.js"></script>
 <script src="/assets/jspdf.umd.min.js"></script>
@@ -724,20 +754,23 @@ let looping = false;
 let cbPhase = 0;
 let rcImageSrc = {}; // rule change photos keyed by slide index
 let photoImageSrc = {}; // full-photo slide images keyed by slide index
+let blImageSrc = {}; // bullet-list slide side images keyed by slide index
 let titleLogoSrc = null;
 const video = document.getElementById('video-el');
 
-// rcImageSrc/photoImageSrc are keyed by array index, not slide identity — any time
-// slides are inserted, removed, or reordered, every index after the change point is
-// now stale and would show the wrong photo (or none) until that slide happened to be
-// revisited. Rebuilding from each slide's own saved data instead of patching indices
-// avoids that entirely. Call after any operation that changes slide order or count.
+// rcImageSrc/photoImageSrc/blImageSrc are keyed by array index, not slide identity —
+// any time slides are inserted, removed, or reordered, every index after the change
+// point is now stale and would show the wrong photo (or none) until that slide happened
+// to be revisited. Rebuilding from each slide's own saved data instead of patching
+// indices avoids that entirely. Call after any operation that changes slide order or count.
 function rebuildImageCaches() {
   rcImageSrc = {};
   photoImageSrc = {};
+  blImageSrc = {};
   slides.forEach((s, i) => {
     if (s.type === 'rulechange' && s.data && s.data.rcImage) rcImageSrc[i] = s.data.rcImage;
     if (s.type === 'photo' && s.data && s.data.photoImage) photoImageSrc[i] = s.data.photoImage;
+    if (s.type === 'bullets' && s.data && s.data.blImage) blImageSrc[i] = s.data.blImage;
   });
 }
 
@@ -1287,6 +1320,63 @@ function renderSlideContent(slide, container) {
 
     centerWrap.append(eyeC, headC, barC, msgC, contactWrap);
     s.appendChild(centerWrap);
+
+  // ── BULLET LIST (optional image on the left) ──────────────────────────
+  } else if (slide.type === 'bullets') {
+    s.style.background = NAVY;
+    s.appendChild(el('div',`position:absolute;left:0;top:0;bottom:0;width:${10*sc}px;background:${GOLD};`));
+
+    const blImg = blImageSrc[currentSlide];
+    const hasImg = !!blImg;
+    const leftMargin = 32*sc, imgColW = 340*sc;
+    const contentLeft = hasImg ? (leftMargin + imgColW + 28*sc) : leftMargin;
+
+    if (hasImg) {
+      const imgCol = el('div',`position:absolute;left:${leftMargin}px;top:${32*sc}px;bottom:${32*sc}px;width:${imgColW}px;border-radius:${10*sc}px;overflow:hidden;background:#0a0a14;`);
+      const img = document.createElement('img');
+      img.src = blImg;
+      img.style.cssText = `width:100%;height:100%;object-fit:cover;display:block;`;
+      imgCol.appendChild(img);
+      s.appendChild(imgCol);
+    }
+
+    const hd = el('div',`position:absolute;left:${contentLeft}px;top:${36*sc}px;right:${32*sc}px;font-size:${38*sc}px;font-weight:800;color:#fff;line-height:1.05;word-break:break-word;`);
+    hd.dataset.field='blHeadline'; hd.dataset.placeholder='Headline';
+    const _blh=d.blHeadline||slide.title||''; if(_blh){hd.textContent=_blh;}else{hd.textContent='Headline';hd.dataset.isEmpty='1';hd.style.opacity='0.4';}
+    s.appendChild(hd);
+
+    s.appendChild(el('div',`position:absolute;left:${contentLeft}px;right:${32*sc}px;top:${96*sc}px;height:${1*sc}px;background:rgba(255,255,255,0.12);`));
+
+    // Always show all 4 bullet slots in the editor (so they're clickable to fill in);
+    // the live viewer filters out empty bullets and empty sub-bullets entirely.
+    const allBl = [
+      [d.bl1||'', d.bl1sub||'', 'bl1', 'bl1sub'],
+      [d.bl2||'', d.bl2sub||'', 'bl2', 'bl2sub'],
+      [d.bl3||'', d.bl3sub||'', 'bl3', 'bl3sub'],
+      [d.bl4||'', d.bl4sub||'', 'bl4', 'bl4sub'],
+    ];
+    const listWrap = el('div',`position:absolute;left:${contentLeft}px;right:${32*sc}px;top:${118*sc}px;bottom:${32*sc}px;display:flex;flex-direction:column;justify-content:space-evenly;gap:${12*sc}px;overflow:hidden;`);
+    listWrap.dataset.autofit = '1';
+    allBl.forEach(([t1,t2,f1,f2])=>{
+      const row = el('div','display:flex;flex-direction:column;gap:4px;flex-shrink:0;');
+      const mainRow = el('div',`display:flex;align-items:flex-start;gap:${12*sc}px;`);
+      const dot = el('div',`width:${8*sc}px;height:${8*sc}px;border-radius:50%;background:${GOLD};flex-shrink:0;margin-top:${9*sc}px;`);
+      const txt = el('div',`font-size:${22*sc}px;font-weight:600;color:#fff;line-height:1.3;flex:1;min-width:0;min-height:${26*sc}px;`);
+      txt.dataset.field=f1; txt.dataset.placeholder='Click to add bullet...';
+      if(t1){txt.textContent=t1;}else{txt.textContent='Click to add bullet...';txt.dataset.isEmpty='1';txt.style.opacity='0.3';txt.style.fontStyle='italic';}
+      mainRow.append(dot, txt);
+      row.appendChild(mainRow);
+      const subRow = el('div',`display:flex;align-items:flex-start;gap:${12*sc}px;padding-left:${20*sc}px;`);
+      const dash = el('div',`font-size:${16*sc}px;color:rgba(255,255,255,0.35);flex-shrink:0;`);
+      dash.textContent = '–';
+      const subTxt = el('div',`font-size:${16*sc}px;color:rgba(255,255,255,0.5);line-height:1.4;flex:1;min-width:0;min-height:${20*sc}px;`);
+      subTxt.dataset.field=f2; subTxt.dataset.placeholder='Sub-bullet (optional)';
+      if(t2){subTxt.textContent=t2;}else{subTxt.textContent='Sub-bullet (optional)';subTxt.dataset.isEmpty='1';subTxt.style.opacity='0.25';subTxt.style.fontStyle='italic';}
+      subRow.append(dash, subTxt);
+      row.appendChild(subRow);
+      listWrap.appendChild(row);
+    });
+    s.appendChild(listWrap);
   }
 
   container.appendChild(s);
@@ -1385,10 +1475,13 @@ function makeEditable(container, slide) {
         el.dataset.isEmpty = '';
         writeField(slide, field, el.innerText);
       }
-      const titleFields = ['title','vidTitle','revRuling','rcHeading','emHeader','discQ','cbTitle','stTitle','closeHeading'];
-      if (titleFields.includes(field) && newVal) {
+      // Once the user has manually named a slide (via the Slide name field), that name
+      // sticks — editing the on-slide content no longer silently overwrites it.
+      const titleFields = ['title','vidTitle','revRuling','rcHeading','emHeader','discQ','cbTitle','stTitle','closeHeading','blHeadline'];
+      if (titleFields.includes(field) && newVal && !(slide.data && slide.data.customTitle)) {
         slide.title = newVal;
         document.getElementById('tb-slide-title').textContent = newVal;
+        g('ep-slide-name').value = newVal;
         renderEditorList();
       }
       saveSlides();
@@ -1462,6 +1555,9 @@ function buildFieldMap(slide) {
     add(d.closeHeading || slide.title, 'closeHeading');
     add(d.closeMessage || '', 'closeMessage');
     add(d.closeContact || '', 'closeContact');
+  } else if (slide.type === 'bullets') {
+    add(d.blHeadline || slide.title, 'blHeadline');
+    ['bl1','bl1sub','bl2','bl2sub','bl3','bl3sub','bl4','bl4sub'].forEach(k => add(d[k], k));
   }
   return map;
 }
@@ -1469,8 +1565,9 @@ function buildFieldMap(slide) {
 function writeField(slide, field, value) {
   if (!slide.data) slide.data = {};
   slide.data[field] = value;
-  // Keep top-level slide fields in sync
-  if (field === 'title' || field === 'vidTitle' || field === 'revRuling' || field === 'stTitle' || field === 'closeHeading') slide.title = value;
+  // Keep top-level slide fields in sync — unless the slide has been manually named,
+  // in which case that name sticks instead of getting overwritten by content edits.
+  if (!slide.data.customTitle && (field === 'title' || field === 'vidTitle' || field === 'revRuling' || field === 'stTitle' || field === 'closeHeading' || field === 'blHeadline')) slide.title = value;
   if (field === 'revRule') slide.rule = value;
 }
 
@@ -1791,7 +1888,7 @@ function renderEditorList() {
 function g(id) { return document.getElementById(id); }
 
 function showGroups(type) {
-  ['title','video','reveal','rulechange','emphasis','discussion','casebook','statetitle','volleyball','photo','jump','closing'].forEach(t => {
+  ['title','video','reveal','rulechange','emphasis','discussion','casebook','statetitle','volleyball','photo','jump','closing','bullets'].forEach(t => {
     const el = g('epg-' + t);
     if (el) el.style.display = t === type ? 'block' : 'none';
   });
@@ -1800,6 +1897,7 @@ function showGroups(type) {
 function populateEditor() {
   const s = slides[currentSlide];
   const d = s.data || {};
+  g('ep-slide-name').value = s.title || '';
   g('ep-type').value = s.type;
   showGroups(s.type);
 
@@ -1830,9 +1928,12 @@ function populateEditor() {
     g('ep-photo-fit').value = d.photoFit || 'cover';
   } else if (s.type === 'jump') {
     populateJumpPickers(d);
+  } else if (s.type === 'bullets') {
+    if (s.data && s.data.blImage) blImageSrc[currentSlide] = s.data.blImage;
+    updateBlImgUI();
   }
-  // Sync step-reveal checkbox for emphasis / discussion
-  const revealTypes = { emphasis: 'ep-step-reveal-em', discussion: 'ep-step-reveal-disc' };
+  // Sync step-reveal checkbox for emphasis / discussion / bullets
+  const revealTypes = { emphasis: 'ep-step-reveal-em', discussion: 'ep-step-reveal-disc', bullets: 'ep-step-reveal-bl' };
   const revealId = revealTypes[s.type];
   if (revealId) { const cb = g(revealId); if (cb) cb.checked = !!d.stepReveal; }
 }
@@ -1959,6 +2060,50 @@ g('ep-rc-img-clear').addEventListener('click', () => {
   if (slides[currentSlide].type === 'rulechange') showSlide(currentSlide);
 });
 
+// Bullet-list slide side image upload
+function updateBlImgUI() {
+  const status = g('ep-bl-img-status');
+  const clearBtn = g('ep-bl-img-clear');
+  const preview = g('ep-bl-img-preview');
+  if (!status) return;
+  const img = blImageSrc[currentSlide];
+  if (img) {
+    status.textContent = 'image loaded';
+    status.style.color = '#5dba7d';
+    clearBtn.style.display = 'inline-block';
+    preview.innerHTML = '<img src="' + img + '" style="max-height:80px;max-width:100%;object-fit:contain;border-radius:4px;background:rgba(255,255,255,0.08);padding:4px;">';
+  } else {
+    status.textContent = 'no image';
+    status.style.color = 'rgba(255,255,255,0.4)';
+    clearBtn.style.display = 'none';
+    preview.innerHTML = '';
+  }
+}
+
+g('ep-bl-img-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    blImageSrc[currentSlide] = ev.target.result;
+    if (!slides[currentSlide].data) slides[currentSlide].data = {};
+    slides[currentSlide].data.blImage = ev.target.result;
+    saveSlides();
+    updateBlImgUI();
+    if (slides[currentSlide].type === 'bullets') showSlide(currentSlide);
+  };
+  reader.readAsDataURL(file);
+});
+
+g('ep-bl-img-clear').addEventListener('click', () => {
+  delete blImageSrc[currentSlide];
+  if (slides[currentSlide].data) delete slides[currentSlide].data.blImage;
+  saveSlides();
+  g('ep-bl-img-input').value = '';
+  updateBlImgUI();
+  if (slides[currentSlide].type === 'bullets') showSlide(currentSlide);
+});
+
 // Full photo slide image upload
 function updatePhotoImgUI() {
   const status = g('ep-photo-img-status');
@@ -2012,6 +2157,24 @@ g('ep-photo-fit').addEventListener('change', () => {
   showSlide(currentSlide);
 });
 
+g('ep-slide-name').addEventListener('input', () => {
+  const slide = slides[currentSlide];
+  if (!slide) return;
+  const val = g('ep-slide-name').value;
+  if (!slide.data) slide.data = {};
+  if (val.trim()) {
+    slide.title = val;
+    slide.data.customTitle = true;
+    document.getElementById('tb-slide-title').textContent = val;
+    renderEditorList();
+  } else {
+    // Cleared back to empty — resume auto-naming from the slide's own content
+    // instead of leaving it blank in the slide list.
+    slide.data.customTitle = false;
+  }
+  saveSlides();
+});
+
 g('ep-rc-rule').addEventListener('input', () => {
   const slide = slides[currentSlide];
   if (!slide || slide.type !== 'rulechange') return;
@@ -2060,7 +2223,7 @@ g('ep-save').addEventListener('click', () => {
   }
 
   let title = slide.title || type;
-  if (type === 'jump') {
+  if (type === 'jump' && !data.customTitle) {
     if (!data.jumpTargetSlug) title = 'Jump to Presentation';
     else title = 'Jump → ' + (data.jumpType === 'quiz' ? 'Quiz: ' : '') + data.jumpTargetTitle;
   }
@@ -2085,6 +2248,7 @@ g('ep-add').addEventListener('click', () => {
     photo: {type:'photo', title:'Photo', body:'', rule:'', data:{photoFit:'cover'}},
     jump: {type:'jump', title:'Jump to Presentation', body:'', rule:'', data:{jumpType:'presentation', jumpTargetSlug:'', jumpTargetIndex:0}},
     closing: {type:'closing', title:'Thank You', body:'', rule:'', data:{closeEyebrow:'Thank You', closeHeading:'Thank You'}},
+    bullets: {type:'bullets', title:'Bullet List', body:'', rule:'', data:{blHeadline:'Headline'}},
   };
   const newSlide = JSON.parse(JSON.stringify(defaults[type] || defaults.video));
   slides.splice(currentSlide+1, 0, newSlide);

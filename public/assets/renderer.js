@@ -480,6 +480,66 @@ function renderSlideContent(slide, container) {
 
     centerWrap.append(eyeC, headC, barC, msgC, contactWrap);
     s.appendChild(centerWrap);
+
+  // ── BULLET LIST (optional image on the left) ──────────────────────────
+  } else if (slide.type === 'bullets') {
+    s.style.background = NAVY;
+    if (d.stepReveal) s.dataset.stepReveal = '1';
+    s.appendChild(el('div',`position:absolute;left:0;top:0;bottom:0;width:${10*sc}px;background:${GOLD};`));
+
+    const hasImg = !!d.blImage;
+    const leftMargin = 32*sc, imgColW = 340*sc;
+    const contentLeft = hasImg ? (leftMargin + imgColW + 28*sc) : leftMargin;
+
+    if (hasImg) {
+      const imgCol = el('div',`position:absolute;left:${leftMargin}px;top:${32*sc}px;bottom:${32*sc}px;width:${imgColW}px;border-radius:${10*sc}px;overflow:hidden;background:#0a0a14;`);
+      const img = document.createElement('img');
+      img.src = d.blImage;
+      img.style.cssText = `width:100%;height:100%;object-fit:cover;display:block;`;
+      imgCol.appendChild(img);
+      s.appendChild(imgCol);
+    }
+
+    const hd = editable(el('div',`position:absolute;left:${contentLeft}px;top:${36*sc}px;right:${32*sc}px;font-size:${38*sc}px;font-weight:800;color:#fff;line-height:1.05;word-break:break-word;`),'blHeadline','Headline');
+    hd.textContent = d.blHeadline || slide.title || 'Headline';
+    s.appendChild(hd);
+
+    s.appendChild(el('div',`position:absolute;left:${contentLeft}px;right:${32*sc}px;top:${96*sc}px;height:${1*sc}px;background:rgba(255,255,255,0.12);`));
+
+    // Empty bullets and empty sub-bullets are simply left out — no placeholder rows.
+    const items = [
+      { t: d.bl1||'', sub: d.bl1sub||'' },
+      { t: d.bl2||'', sub: d.bl2sub||'' },
+      { t: d.bl3||'', sub: d.bl3sub||'' },
+      { t: d.bl4||'', sub: d.bl4sub||'' }
+    ].filter(it => it.t.trim());
+
+    // Flex column with space-evenly (same adaptive-spacing approach as the emphasis
+    // slide): fewer bullets spread out to fill the space, and a longer item just grows
+    // its own row instead of a fixed per-row height causing overlap.
+    const listWrap = el('div',`position:absolute;left:${contentLeft}px;right:${32*sc}px;top:${118*sc}px;bottom:${32*sc}px;display:flex;flex-direction:column;justify-content:space-evenly;gap:${12*sc}px;overflow:hidden;`);
+    listWrap.dataset.autofit = '1';
+    items.forEach((item, i) => {
+      const row = el('div','display:flex;flex-direction:column;gap:4px;flex-shrink:0;');
+      revealLine(row, i);
+      const mainRow = el('div',`display:flex;align-items:flex-start;gap:${12*sc}px;`);
+      const dot = el('div',`width:${8*sc}px;height:${8*sc}px;border-radius:50%;background:${GOLD};flex-shrink:0;margin-top:${9*sc}px;`);
+      const txt = el('div',`font-size:${22*sc}px;font-weight:600;color:#fff;line-height:1.3;`);
+      txt.textContent = item.t;
+      mainRow.append(dot, txt);
+      row.appendChild(mainRow);
+      if (item.sub.trim()) {
+        const subRow = el('div',`display:flex;align-items:flex-start;gap:${12*sc}px;padding-left:${20*sc}px;`);
+        const dash = el('div',`font-size:${16*sc}px;color:rgba(255,255,255,0.35);flex-shrink:0;`);
+        dash.textContent = '–';
+        const subTxt = el('div',`font-size:${16*sc}px;color:rgba(255,255,255,0.5);line-height:1.4;`);
+        subTxt.textContent = item.sub;
+        subRow.append(dash, subTxt);
+        row.appendChild(subRow);
+      }
+      listWrap.appendChild(row);
+    });
+    s.appendChild(listWrap);
   }
 
   container.appendChild(s);

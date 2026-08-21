@@ -163,7 +163,7 @@ html,body{height:100%;background:#000;color:#fff;font-family:"Segoe UI",system-u
   <div id="sp-list"></div>
 </div>
 
-<script src="/assets/renderer.js?v=10"></script>
+<script src="/assets/renderer.js?v=11"></script>
 <script src="/assets/volleyball-trainer.js?v=3"></script>
 <script>
 let slug=location.pathname.split("/p/")[1];
@@ -535,8 +535,8 @@ function setView(wantVideo){
 function advanceNext(){
   const slide=slides[currentSlide];
   if(!slide)return;
-  // If step-reveal is active on emphasis/discussion and lines remain, reveal next one
-  const revealTypes = ['emphasis','discussion'];
+  // If step-reveal is active on emphasis/discussion/bullets and lines remain, reveal next one
+  const revealTypes = ['emphasis','discussion','bullets'];
   if(slide.data&&slide.data.stepReveal&&revealTypes.includes(slide.type)&&!allRevealed()){
     revealNext();
     return;
@@ -559,7 +559,7 @@ document.getElementById("tb-prev").addEventListener("click",function(){
   const slide=slides[currentSlide];
   if(!slide)return;
   // If step-reveal is active and some lines are shown, hide all and reset
-  if(slide.data&&slide.data.stepReveal&&['emphasis','discussion'].includes(slide.type)&&revealStep>0){
+  if(slide.data&&slide.data.stepReveal&&['emphasis','discussion','bullets'].includes(slide.type)&&revealStep>0){
     initRevealLines(); return;
   }
   const showText=slide.data?slide.data.vidShowText!==false:true;
@@ -589,12 +589,12 @@ const TYPE_LABELS = {
   title:'Title', video:'Scenario', reveal:'Answer Reveal', rulechange:'Rule Change',
   emphasis:'Points of Emphasis', discussion:'Discussion',
   casebook:'Casebook', statetitle:'State Title',
-  volleyball:'Volleyball Trainer', photo:'Photo', jump:'Jump', closing:'Closing'
+  volleyball:'Volleyball Trainer', photo:'Photo', jump:'Jump', closing:'Closing', bullets:'Bullet List'
 };
 const TYPE_COLORS = {
   title:'#666', video:'#F26522', reveal:'#4caf82', rulechange:'#e05a2b',
   emphasis:'#5b9bd5', discussion:'#e8b84b',
-  casebook:'#4caf82', statetitle:'#7ba7d4', jump:'#8b5cf6', closing:'#666',
+  casebook:'#4caf82', statetitle:'#7ba7d4', jump:'#8b5cf6', closing:'#666', bullets:'#5b9bd5',
   volleyball:'#f59e0b', photo:'#4caf82'
 };
 
