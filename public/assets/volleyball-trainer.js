@@ -37,6 +37,10 @@
     { a: 'LB', b: 'MB', type: 'left-of' }, { a: 'MB', b: 'RB', type: 'left-of' },
     { a: 'LF', b: 'LB', type: 'front-of' }, { a: 'MF', b: 'MB', type: 'front-of' }, { a: 'RF', b: 'RB', type: 'front-of' }
   ];
+  // Each lineup slot's rotational opposite (3 apart) — always on the opposite row from
+  // its partner at any given rotation. Used by the libero's "replaces opposite" mode so
+  // the libero can stay on court continuously, covering whichever of the pair is back row.
+  const OPPOSITE_SLOT = { 1: 4, 2: 5, 3: 6, 4: 1, 5: 2, 6: 3 };
   const COURT_SIZES = { compact: 8, standard: 12, large: 15, xlarge: 18 };
   const COURT_W = 30, COURT_L = 30;
   const NS = 'http://www.w3.org/2000/svg';
@@ -79,6 +83,10 @@
 .vbt-position-input{font-weight:600;color:#0f172a;font-size:10.5px;font-family:inherit;border:none;background:transparent;padding:1px 3px;border-radius:3px;width:100%;min-width:0;}
 .vbt-position-input:hover,.vbt-position-input:focus{background:#e2e8f0;outline:none;}
 .vbt-zone{color:#64748b;font-size:9px;}
+.vbt-sub-row{display:flex;align-items:center;gap:5px;margin-top:2px;}
+.vbt-sub-label{font-size:9px;font-weight:600;color:#94a3b8;margin:0;}
+.vbt-sub-input{width:38px;font-size:10px;font-family:inherit;padding:1px 4px;border-radius:5px;border:1px solid #cbd5e1;color:#0f172a;}
+.vbt-sub-input::placeholder{color:#cbd5e1;}
 .vbt-tag{font-size:8.5px;font-weight:700;padding:1px 5px;border-radius:7px;flex-shrink:0;}
 .vbt-tag.vbt-tag-libero{color:#92400e;background:#fef3c7;}
 .vbt-tag.vbt-tag-setter{color:#6b21a8;background:#f3e8ff;}
@@ -134,6 +142,9 @@
     const s = {
       rotationOffset: typeof raw.rotationOffset === 'number' ? raw.rotationOffset : 0,
       liberoSlot: raw.liberoSlot || 'none',
+      // Default true — real high-level libero usage stays on court continuously by
+      // covering whichever of the assigned slot's opposite pair is currently back row.
+      liberoAutoOpposite: raw.liberoAutoOpposite !== undefined ? !!raw.liberoAutoOpposite : true,
       setterNum: raw.setterNum || 'none',
       uniformColor: !!raw.uniformColor,
       courtSize: COURT_SIZES[raw.courtSize] ? raw.courtSize : 'standard',
@@ -142,7 +153,23 @@
       positionNames: Object.assign(
         { 1: 'Position 1', 2: 'Position 2', 3: 'Position 3', 4: 'Position 4', 5: 'Position 5', 6: 'Position 6' },
         raw.positionNames
-      )
+      ),
+      // Per-slot substitute jersey number, or 'none' if that slot has no sub assigned.
+      subs: Object.assign({ 1: 'none', 2: 'none', 3: 'none', 4: 'none', 5: 'none', 6: 'none' }, raw.subs),
+      // Whether the sub (true) or the original player (false) is presently on court for
+      // each slot. Flips automatically at each row crossing once a sub is assigned — see
+      // resetToFormation() and the sub-input handler in renderLineupPanel().
+      subOnCourt: Object.assign({ 1: false, 2: false, 3: false, 4: false, 5: false, 6: false }, raw.subOnCourt),
+      // Last-recorded front/back status per slot, used only to detect a row crossing so
+      // the auto hand-off knows when to fire — null until a baseline has been recorded.
+      subRowBaseline: Object.assign({ 1: null, 2: null, 3: null, 4: null, 5: null, 6: null }, raw.subRowBaseline),
+      // True once the lineup has actually moved on (Rotate, or picking a different
+      // rotation from the dropdown) rather than just being viewed at its initial spot.
+      // A sub typed in before this is still true waits on the bench for the first row
+      // change, mirroring a real substitution before the whistle; after it, a newly
+      // typed sub is assumed to be a mid-match sub spotted from a photo and takes the
+      // court immediately.
+      rotationHasChanged: !!raw.rotationHasChanged
     };
     const formation = computeFormation(s.rotationOffset);
     s.players = {};
@@ -211,6 +238,13 @@
       const liberoLabel = document.createElement('label'); liberoLabel.className = 'vbt-label'; liberoLabel.textContent = 'Libero replaces';
       const liberoSelect = document.createElement('select'); liberoSelect.className = 'vbt-select';
       controls.append(liberoLabel, liberoSelect);
+
+      const liberoAutoRow = div('vbt-check-row');
+      const liberoAutoCheck = document.createElement('input'); liberoAutoCheck.type = 'checkbox';
+      const liberoAutoLbl = document.createElement('label'); liberoAutoLbl.textContent = 'Libero replaces opposite';
+      liberoAutoRow.append(liberoAutoCheck, liberoAutoLbl);
+      const liberoAutoHint = div('vbt-hint', ''); liberoAutoHint.textContent = 'Stays on court continuously, covering whichever of the pair is back row.';
+      controls.append(liberoAutoRow, liberoAutoHint);
 
       const setterLabel = document.createElement('label'); setterLabel.className = 'vbt-label'; setterLabel.textContent = 'Setter';
       const setterSelect = document.createElement('select'); setterSelect.className = 'vbt-select';
@@ -378,7 +412,29 @@
 
       // ---- player logic ----
       function isFrontRow(n) { return FRONT_ZONES.includes(state.players[n].zone); }
-      function isLiberoActive(n) { return state.liberoSlot !== 'none' && String(state.liberoSlot) === String(n) && !isFrontRow(n); }
+      // With liberoAutoOpposite on, the libero covers whichever of the assigned slot's
+      // opposite pair is currently back row — the pair is always split front/back at
+      // every rotation, so exactly one of the two (never both, never neither) qualifies.
+      // With it off, the libero only covers the exact assigned slot while it's back row.
+      function isLiberoActive(n) {
+        if (state.liberoSlot === 'none') return false;
+        const assigned = String(state.liberoSlot);
+        if (!state.liberoAutoOpposite) {
+          return assigned === String(n) && !isFrontRow(n);
+        }
+        const opposite = String(OPPOSITE_SLOT[state.liberoSlot]);
+        if (String(n) !== assigned && String(n) !== opposite) return false;
+        return !isFrontRow(n);
+      }
+      // A sub is "assigned" once a jersey number has been typed in; "active" additionally
+      // requires them to actually be the one on court right now (vs. waiting on the bench).
+      function slotHasSub(num) {
+        const v = state.subs[num];
+        return v !== undefined && v !== 'none' && String(v).trim() !== '';
+      }
+      function isSubActive(num) {
+        return slotHasSub(num) && state.subOnCourt[num];
+      }
       function colorFor(n) {
         if (isLiberoActive(n)) return '#f59e0b';
         if (state.uniformColor) return '#0d9488';
@@ -522,7 +578,7 @@
         g.appendChild(svgEl('circle', { cx: 0, cy: -BODY_H / 2 - HEAD_R - 1, r: HEAD_R, class: 'vbt-player-head', stroke: '#fff', 'stroke-width': 1.5 }));
 
         const label = svgEl('text', { x: 0, y: 1, class: 'vbt-player-label', 'font-size': 12 });
-        label.textContent = isLibero ? 'L' : state.jerseys[n];
+        label.textContent = isLibero ? 'L' : (isSubActive(n) ? state.subs[n] : state.jerseys[n]);
         g.appendChild(label);
 
         if (isSetter) {
@@ -557,6 +613,7 @@
           const zone = state.players[n].zone;
           const isLibero = isLiberoActive(n);
           const isSetter = String(state.setterNum) === String(n);
+          const isSub = isSubActive(n);
           const li = document.createElement('li');
           if (state.lineupHidden) li.classList.add('vbt-hidden-blur');
 
@@ -565,9 +622,9 @@
           const input = document.createElement('input');
           input.type = 'text'; input.inputMode = 'numeric'; input.maxLength = 2;
           input.className = 'vbt-jersey-input';
-          input.value = isLibero ? 'L' : state.jerseys[n];
-          input.disabled = isLibero;
-          input.title = isLibero ? 'Libero is on court for this slot' : 'Click to edit jersey number';
+          input.value = isLibero ? 'L' : (isSub ? state.subs[n] : state.jerseys[n]);
+          input.disabled = isLibero || isSub;
+          input.title = isLibero ? 'Libero is on court for this slot' : (isSub ? 'Sub is on court for this slot' : 'Click to edit jersey number');
           input.addEventListener('change', (e) => {
             const v = e.target.value.trim();
             state.jerseys[n] = v === '' ? String(n) : v;
@@ -598,6 +655,50 @@
           textWrap.appendChild(posRow);
           const zoneDiv = div('vbt-zone'); zoneDiv.textContent = ZONE_NAMES[zone] || zone;
           textWrap.appendChild(zoneDiv);
+
+          // This box always shows/edits whoever is currently OFF the court for this slot:
+          // the sub's number while the original is playing, or the original's number
+          // while the sub is playing — it flips the instant a row-crossing swap happens.
+          const subRow = div('vbt-sub-row');
+          const subLabel = document.createElement('label'); subLabel.className = 'vbt-sub-label';
+          subLabel.textContent = isSub ? 'On bench:' : 'Sub #:';
+          const subInput = document.createElement('input');
+          subInput.type = 'text'; subInput.inputMode = 'numeric'; subInput.maxLength = 3;
+          subInput.className = 'vbt-sub-input';
+          subInput.placeholder = 'none';
+          subInput.value = isSub ? state.jerseys[n] : (slotHasSub(n) ? state.subs[n] : '');
+          subInput.title = isSub
+            ? 'Original player\'s jersey number, currently on the bench'
+            : 'Jersey number of this position\'s substitute (blank = no sub assigned). During initial setup, before the lineup has moved (Rotate, or jumping rotations), they wait on the bench until this slot\'s row changes. After that, entering a sub here puts them on court immediately.';
+          subInput.addEventListener('change', (e) => {
+            const v = e.target.value.trim();
+            if (isSub) {
+              // This box is currently editing the benched ORIGINAL player's number.
+              state.jerseys[n] = v === '' ? String(n) : v;
+            } else {
+              const hadSub = slotHasSub(n);
+              state.subs[n] = v === '' ? 'none' : v;
+              const hasSubNow = slotHasSub(n);
+              if (hasSubNow && !hadSub) {
+                if (state.rotationHasChanged) {
+                  // Mid-match: takes the court immediately, whatever rotation is showing.
+                  state.subOnCourt[n] = true;
+                  state.subRowBaseline[n] = FRONT_ZONES.includes(state.players[n].zone);
+                }
+                // Still initial setup: leave them on the bench — the baseline already
+                // being tracked (from the last resetToFormation()) means the first
+                // Rotate/jump that crosses this slot's row swaps them in automatically.
+              } else if (!hasSubNow && hadSub) {
+                // Sub cleared — original player is back on court.
+                state.subOnCourt[n] = false;
+                state.subRowBaseline[n] = null;
+              }
+            }
+            render();
+            emit();
+          });
+          subRow.append(subLabel, subInput);
+          textWrap.appendChild(subRow);
 
           li.append(jerseyWrap, textWrap);
           lineupList.appendChild(li);
@@ -719,23 +820,42 @@
 
       // ---- wiring ----
       function resetToFormation() {
-        state.players = computeFormation(state.rotationOffset);
+        const newPlayers = computeFormation(state.rotationOffset);
+        // Row-crossing hand-off: compare each slot's new front/back status against the
+        // last baseline recorded. If it flipped and that slot has a sub assigned, swap
+        // who's on court. First call for a slot (baseline still null) just records it —
+        // this is also how an initial-setup sub ends up waiting on the bench: the
+        // baseline is already tracking front/back before the sub is even assigned, so
+        // the first real Rotate/jump after that naturally trips the swap.
+        for (let n = 1; n <= 6; n++) {
+          const newIsFront = FRONT_ZONES.includes(newPlayers[n].zone);
+          if (state.subRowBaseline[n] !== null && slotHasSub(n) && newIsFront !== state.subRowBaseline[n]) {
+            state.subOnCourt[n] = !state.subOnCourt[n];
+          }
+          state.subRowBaseline[n] = newIsFront;
+        }
+        state.players = newPlayers;
         drawCourt(); render();
         setStatus('idle', 'Positions reset to standard rotation. Drag players, then check.');
         emit();
       }
 
       rotSelect.addEventListener('change', () => {
+        // Picking a rotation directly (e.g. to match a photo) counts as "the lineup has
+        // moved on" just as much as Rotate does — not just initial setup anymore.
+        state.rotationHasChanged = true;
         state.rotationOffset = parseInt(rotSelect.value, 10);
         resetToFormation();
       });
       rotateBtn.addEventListener('click', () => {
+        state.rotationHasChanged = true;
         state.rotationOffset = (state.rotationOffset + 1) % 6;
         rotSelect.value = state.rotationOffset;
         resetToFormation();
       });
       resetBtn.addEventListener('click', resetToFormation);
       liberoSelect.addEventListener('change', () => { state.liberoSlot = liberoSelect.value; render(); emit(); });
+      liberoAutoCheck.addEventListener('change', () => { state.liberoAutoOpposite = liberoAutoCheck.checked; render(); emit(); });
       setterSelect.addEventListener('change', () => { state.setterNum = setterSelect.value; render(); emit(); });
       uniformCheck.addEventListener('change', () => { state.uniformColor = uniformCheck.checked; render(); emit(); });
       sizeSelect.addEventListener('change', () => { state.courtSize = sizeSelect.value; drawCourt(); render(); emit(); });
@@ -758,6 +878,7 @@
       rotSelect.value = state.rotationOffset;
       sizeSelect.value = state.courtSize;
       uniformCheck.checked = state.uniformColor;
+      liberoAutoCheck.checked = state.liberoAutoOpposite;
       populateSelects();
       drawCourt();
       render();
