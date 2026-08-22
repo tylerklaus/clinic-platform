@@ -442,6 +442,9 @@ html, body {
       <button class="tb-btn" id="ep-export-pdf" title="Export slides as PDF" style="padding:0 10px; height:30px; font-size:12px;">
         <i class="ti ti-file-type-pdf"></i> Export PDF
       </button>
+      <button class="tb-btn" id="ep-export-html" title="Export a standalone HTML file you can post publicly — no server calls except Bunny video" style="padding:0 10px; height:30px; font-size:12px;">
+        <i class="ti ti-file-type-html"></i> Export HTML
+      </button>
       <button class="tb-btn" id="ep-close" style="padding:0 10px; height:30px; font-size:12px;">
         <i class="ti ti-x"></i> Close
       </button>
@@ -738,7 +741,7 @@ html, body {
   </div>
 </div>
 
-<script src="/assets/renderer.js?v=11"></script>
+<script src="/assets/renderer.js?v=12"></script>
 <script src="/assets/volleyball-trainer.js?v=8"></script>
 <script src="/assets/html2canvas.min.js"></script>
 <script src="/assets/jspdf.umd.min.js"></script>
@@ -907,9 +910,10 @@ function renderSlideContent(slide, container) {
     panel.appendChild(el('div',`position:absolute;top:0;left:0;right:0;height:${5*sc}px;background:rgba(0,0,0,0.2);`));
     const scenLabel = el('div',`font-size:${11*sc}px;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:${3*sc}px;text-transform:uppercase;margin-bottom:${10*sc}px;`);
     scenLabel.dataset.field='vidTitle'; scenLabel.dataset.placeholder='Scenario label'; const _vtVal=d.vidTitle||slide.title||''; if(_vtVal){scenLabel.textContent=_vtVal;}else{scenLabel.textContent='Scenario label';scenLabel.dataset.isEmpty='1';scenLabel.style.opacity='0.65';}
-    const bigTxt = el('div',`font-size:${56*sc}px;font-weight:900;color:#fff;line-height:0.88;letter-spacing:${-1*sc}px;text-transform:uppercase;margin-bottom:${24*sc}px;`);
-    bigTxt.style.whiteSpace='pre-line';
-    bigTxt.dataset.field='panelText'; bigTxt.style.whiteSpace='pre-line'; bigTxt.textContent=d.panelText||'You\nMake\nthe\nCall';
+    const bigTxt = el('div',`font-size:${56*sc}px;font-weight:900;color:#fff;line-height:0.88;letter-spacing:${-1*sc}px;text-transform:uppercase;margin-bottom:${24*sc}px;overflow:hidden;`);
+    bigTxt.style.whiteSpace='pre';
+    bigTxt.dataset.autofit='1';
+    bigTxt.dataset.field='panelText'; bigTxt.textContent=d.panelText||'You\nMake\nthe\nCall';
     // Bottom pill on panel
     const ctaBadge = el('div',`display:inline-block;background:${NAVY};color:#fff;font-size:${14*sc}px;font-weight:700;padding:${9*sc}px ${22*sc}px;border-radius:${4*sc}px;letter-spacing:${0.3*sc}px;`);
     ctaBadge.dataset.field='vidCta'; ctaBadge.textContent=d.vidCta||"What's your call?";
@@ -1832,6 +1836,273 @@ async function exportSlidesToPdf(perPage) {
   doc.save((filenameBase || 'presentation') + '-' + (perPage === 1 ? '1up' : '4up') + '.pdf');
 
   document.getElementById('pdf-overlay').style.display = 'none';
+}
+
+/* ── STANDALONE HTML EXPORT ──
+   Produces one self-contained .html file: the read-only renderer + volleyball trainer
+   source inlined, the slide data baked in, and a small purpose-built slideshow script
+   (trimmed from viewer/index.html — no quiz jumps, no password gate, no video-library
+   panel, no cross-dissolve). Bunny video URLs are used directly; nothing else calls
+   the server, so the file can be posted publicly. */
+document.getElementById('ep-export-html').addEventListener('click', exportStandaloneHtml);
+
+function escapeScriptClose(s) { return s.replace(/<\/script/gi, '<\\/script'); }
+
+async function exportStandaloneHtml() {
+  const btn = document.getElementById('ep-export-html');
+  const origHtml = btn.innerHTML;
+  btn.innerHTML = '<i class="ti ti-loader"></i> Exporting...';
+  btn.disabled = true;
+  try {
+    const [rendererSrc, vbtSrc, metaRes] = await Promise.all([
+      fetch('/assets/renderer.js?v=12').then(r => r.text()),
+      fetch('/assets/volleyball-trainer.js?v=8').then(r => r.text()),
+      fetch('/api/presentations/' + slug).then(r => r.ok ? r.json() : null)
+    ]);
+    const title = (metaRes && metaRes.title) || document.title.replace(/^Edit:\s*/, '').replace(/\s*—\s*Clinic$/, '') || 'Presentation';
+
+    // Jump slides only make sense against the live server — drop them, same as PDF export.
+    // Reveal-pause defaults to off for bullet lists and points of emphasis in a standalone
+    // export (no presenter there to click through them); discussion slides keep whatever
+    // step-reveal setting they were saved with.
+    const exportSlides = slides
+      .filter(s => s.type !== 'jump')
+      .map(s => {
+        const copy = JSON.parse(JSON.stringify(s));
+        if ((copy.type === 'bullets' || copy.type === 'emphasis') && copy.data) {
+          copy.data.stepReveal = false;
+        }
+        return copy;
+      });
+
+    const html = buildStandaloneHtml(exportSlides, rendererSrc, vbtSrc, title);
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (slug || 'presentation').replace(/[^a-z0-9-]+/gi, '-') + '.html';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch (e) {
+    console.error('Standalone export failed:', e);
+    alert('Export failed — see console for details.');
+  } finally {
+    btn.innerHTML = origHtml;
+    btn.disabled = false;
+  }
+}
+
+function buildStandaloneHtml(exportSlides, rendererSrc, vbtSrc, title) {
+  const safeTitle = String(title).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+  const dataJson = escapeScriptClose(JSON.stringify(exportSlides));
+
+  const head = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${safeTitle}</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#1B1B2F;--gold:#F26522}
+html,body{height:100%;background:#000;color:#fff;font-family:"Segoe UI",system-ui,sans-serif;overflow:hidden}
+#deck{position:fixed;inset:0 0 56px 0;background:#000}
+#slide-canvas{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+#slide-frame{position:relative;background:#000;overflow:hidden}
+#video-slide{position:absolute;inset:0;background:#000;display:none}
+#video-slide.active{display:block}
+#video-el{width:100%;height:100%;object-fit:contain;background:#000;display:block}
+#content-slide{position:absolute;inset:0;display:none;background:#fff;color:#111}
+#content-slide.active{display:block}
+#slide-inner{width:100%;height:100%;position:relative}
+#toolbar{position:fixed;bottom:0;left:0;right:0;height:56px;background:var(--navy);display:flex;align-items:center;padding:0 16px;gap:8px;border-top:2px solid var(--gold);z-index:100}
+.tb-btn{display:flex;align-items:center;justify-content:center;height:36px;padding:0 14px;border-radius:7px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.85);cursor:pointer;font-size:13px;gap:6px;white-space:nowrap;font-family:inherit}
+.tb-btn:hover{background:rgba(255,255,255,0.14)}
+.tb-btn.primary{background:var(--gold);border-color:var(--gold);color:var(--navy);font-weight:600}
+#tb-indicator{font-size:12px;color:rgba(255,255,255,0.4);font-family:monospace;min-width:60px;text-align:center}
+[data-step-reveal="1"] [data-reveal-line]{opacity:0!important;transition:opacity 0.35s ease}
+[data-step-reveal="1"] [data-reveal-line].revealed{opacity:1!important}
+@keyframes cb-slide-left{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+@keyframes cb-slide-right{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+.cb-anim-left{animation:cb-slide-left 0.38s cubic-bezier(0.22,1,0.36,1) both}
+.cb-anim-right{animation:cb-slide-right 0.38s cubic-bezier(0.22,1,0.36,1) both}
+</style>
+</head>
+<body>
+<div id="deck">
+  <div id="slide-canvas"><div id="slide-frame">
+    <div id="video-slide">
+      <video id="video-el" controls playsinline></video>
+    </div>
+    <div id="content-slide"><div id="slide-inner"></div></div>
+  </div></div>
+</div>
+<div id="toolbar">
+  <button class="tb-btn" id="tb-prev"><i class="ti ti-chevron-left"></i> Prev</button>
+  <button class="tb-btn primary" id="tb-next">Next <i class="ti ti-chevron-right"></i></button>
+  <span id="tb-indicator">1 / 1</span>
+  <div style="margin-left:auto;"></div>
+  <button class="tb-btn" id="tb-fullscreen" title="Fullscreen (F)"><i class="ti ti-maximize"></i></button>
+</div>
+<script>
+`;
+
+  const navScript = `
+let slides = ${dataJson};
+let currentSlide = 0, showingVideo = true, cbPhase = 0, titleLogoSrc = null, revealStep = 0;
+const video = document.getElementById("video-el");
+
+function resizeFrame(){
+  const deck = document.getElementById("deck");
+  const W = deck.offsetWidth, H = deck.offsetHeight, r = 16/9;
+  let w = W, h = W / r; if (h > H) { h = H; w = H * r; }
+  const f = document.getElementById("slide-frame");
+  f.style.width = w + "px"; f.style.height = h + "px";
+}
+window.addEventListener("resize", resizeFrame);
+
+function getRevealLines(){
+  const s = document.querySelector('#slide-inner [data-step-reveal="1"]');
+  if (!s) return [];
+  return Array.from(s.querySelectorAll('[data-reveal-line]'))
+    .sort((a,b) => parseInt(a.dataset.revealLine) - parseInt(b.dataset.revealLine));
+}
+function initRevealLines(){ revealStep = 0; getRevealLines().forEach(l => l.classList.remove('revealed')); }
+function revealNext(){
+  const lines = getRevealLines();
+  const nextLine = lines.find(l => !l.classList.contains('revealed'));
+  if (!nextLine) return false;
+  const idx = nextLine.dataset.revealLine;
+  lines.filter(l => l.dataset.revealLine === idx && !l.classList.contains('revealed')).forEach(l => l.classList.add('revealed'));
+  revealStep++;
+  return true;
+}
+function allRevealed(){ const lines = getRevealLines(); return lines.length === 0 || lines.every(l => l.classList.contains('revealed')); }
+
+function animateCasebookReveal(){
+  const inner = document.getElementById("slide-inner");
+  const leftEl = inner.querySelector('[data-cb-left]');
+  const rightEl = inner.querySelector('[data-cb-right]');
+  if (leftEl) { leftEl.classList.remove('cb-anim-left'); void leftEl.offsetWidth; leftEl.classList.add('cb-anim-left'); }
+  if (rightEl) { rightEl.classList.remove('cb-anim-right'); void rightEl.offsetWidth; rightEl.classList.add('cb-anim-right'); }
+}
+
+function renderContentSlide(slide, animate){
+  if (slide.type === 'title') titleLogoSrc = (slide.data && slide.data.titleLogo) || null;
+  const inner = document.getElementById("slide-inner");
+  const f = document.getElementById("slide-frame");
+  inner.style.width = f.style.width; inner.style.height = f.style.height;
+  renderSlideContent(slide, inner);
+  if (slide.data && slide.data.stepReveal) initRevealLines();
+  if (animate) animateCasebookReveal();
+}
+
+function showSlide(idx){
+  currentSlide = Math.max(0, Math.min(slides.length - 1, idx));
+  document.getElementById("tb-indicator").textContent = (currentSlide + 1) + " / " + slides.length;
+}
+
+function setView(wantVideo){
+  const slide = slides[currentSlide];
+  if (!slide || slide.type !== "video") wantVideo = false;
+  showingVideo = wantVideo;
+  const vs = document.getElementById("video-slide");
+  const cs = document.getElementById("content-slide");
+  video.pause();
+  if (wantVideo) {
+    vs.classList.add("active"); cs.classList.remove("active");
+    if (slide.data && slide.data.vidClipUrl) video.src = slide.data.vidClipUrl;
+  } else {
+    vs.classList.remove("active"); cs.classList.add("active");
+    const isCasebook = slide.type === "casebook" && cbPhase === 1;
+    renderContentSlide(slide, isCasebook);
+  }
+}
+
+function goToSlide(idx){
+  currentSlide = Math.max(0, Math.min(slides.length - 1, idx));
+  cbPhase = 0;
+  showSlide(currentSlide);
+  const s = slides[currentSlide];
+  const order = (s.data && s.data.vidOrder) || "video";
+  setView(!!(s.type === "video" && order === "video"));
+}
+
+function advanceNext(){
+  const slide = slides[currentSlide];
+  if (!slide) return;
+  const revealTypes = ['emphasis','discussion','bullets'];
+  if (slide.data && slide.data.stepReveal && revealTypes.includes(slide.type) && !allRevealed()) {
+    revealNext();
+    return;
+  }
+  const order = (slide.data && slide.data.vidOrder) || "video";
+  const showText = slide.data ? slide.data.vidShowText !== false : true;
+  if (slide.type === "video") {
+    if (order === "video" && showingVideo && showText) { setView(false); return; }
+    if (order === "situation" && !showingVideo && showText) { setView(true); return; }
+  }
+  if (slide.type === "casebook" && cbPhase === 0) { cbPhase = 1; setView(false); return; }
+  if (currentSlide < slides.length - 1) {
+    currentSlide++; cbPhase = 0;
+    goToSlide(currentSlide);
+  }
+}
+
+function goPrev(){
+  const slide = slides[currentSlide];
+  if (!slide) return;
+  if (slide.data && slide.data.stepReveal && ['emphasis','discussion','bullets'].includes(slide.type) && revealStep > 0) {
+    initRevealLines(); return;
+  }
+  const showText = slide.data ? slide.data.vidShowText !== false : true;
+  if (slide.type === "video" && showingVideo && showText) { setView(false); return; }
+  if (slide.type === "casebook" && cbPhase === 1) { cbPhase = 0; setView(false); return; }
+  if (currentSlide > 0) {
+    currentSlide--; cbPhase = 0;
+    showSlide(currentSlide);
+    setView(slides[currentSlide].type === "video");
+  }
+}
+
+document.getElementById("tb-next").addEventListener("click", advanceNext);
+document.getElementById("tb-prev").addEventListener("click", goPrev);
+
+function toggleFullscreen(){
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(()=>{});
+  } else {
+    document.exitFullscreen();
+  }
+}
+document.getElementById("tb-fullscreen").addEventListener("click", toggleFullscreen);
+document.addEventListener("fullscreenchange", function(){
+  const btn = document.getElementById("tb-fullscreen");
+  if (btn) btn.innerHTML = document.fullscreenElement ? '<i class="ti ti-minimize"></i>' : '<i class="ti ti-maximize"></i>';
+});
+
+document.addEventListener("keydown", function(e){
+  const tag = document.activeElement.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+  if (e.key === "[" || e.key === "PageUp") { e.preventDefault(); goPrev(); return; }
+  if (e.key === "]" || e.key === "PageDown") { e.preventDefault(); advanceNext(); return; }
+  if (tag === "VIDEO") return;
+  if (e.key === "ArrowLeft") { e.preventDefault(); goPrev(); return; }
+  if (e.key === "ArrowRight") { e.preventDefault(); advanceNext(); return; }
+  if (e.code === "Space") { e.preventDefault(); advanceNext(); return; }
+  if (e.key === "f" || e.key === "F") toggleFullscreen();
+});
+
+resizeFrame();
+goToSlide(0);
+<\/script>
+</body>
+</html>`;
+
+  return head + escapeScriptClose(rendererSrc) + '\n<\/script>\n<script>\n' + escapeScriptClose(vbtSrc) + '\n<\/script>\n<script>' + navScript;
 }
 
 /* ── EDITOR ── */

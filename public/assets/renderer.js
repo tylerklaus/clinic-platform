@@ -141,8 +141,9 @@ function renderSlideContent(slide, container) {
     panel.appendChild(el('div',`position:absolute;top:0;left:0;right:0;height:${5*sc}px;background:rgba(0,0,0,0.2);`));
     const scenLabel = editable(el('div',`font-size:${11*sc}px;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:${3*sc}px;text-transform:uppercase;margin-bottom:${10*sc}px;`),'vidTitle','Situation Label');
     scenLabel.textContent = d.vidTitle || slide.title;
-    const bigTxt = editable(el('div',`font-size:${56*sc}px;font-weight:900;color:#fff;line-height:0.88;letter-spacing:${-1*sc}px;text-transform:uppercase;margin-bottom:${24*sc}px;`),'panelText','You\nMake\nthe\nCall');
-    bigTxt.style.whiteSpace='pre-line';
+    const bigTxt = editable(el('div',`font-size:${56*sc}px;font-weight:900;color:#fff;line-height:0.88;letter-spacing:${-1*sc}px;text-transform:uppercase;margin-bottom:${24*sc}px;overflow:hidden;`),'panelText','You\nMake\nthe\nCall');
+    bigTxt.style.whiteSpace='pre';
+    bigTxt.dataset.autofit = '1';
     bigTxt.textContent = d.panelText || 'You\nMake\nthe\nCall';
     const ctaBadge = editable(el('div',`display:inline-block;background:${NAVY};color:#fff;font-size:${14*sc}px;font-weight:700;padding:${9*sc}px ${22*sc}px;border-radius:${4*sc}px;letter-spacing:${0.3*sc}px;`),'vidCta',"What's your call?");
     ctaBadge.textContent = d.vidCta || "What's your call?";
