@@ -360,6 +360,8 @@ html, body {
 
 #editor-saving{position:fixed;top:16px;right:16px;background:rgba(242,101,34,0.9);color:#fff;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:999}
 #editor-saving.show{opacity:1}
+#save-error{display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#c0392b;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,0.5);z-index:1000;cursor:pointer;max-width:90vw;text-align:center;}
+#save-error.show{display:block}
 </style>
 </head>
 <body>
@@ -719,6 +721,7 @@ html, body {
 
 <div id="toast"></div>
 <div id="editor-saving">Saving...</div>
+<div id="save-error" title="Click to retry saving now">⚠ Save failed — your latest changes are NOT saved. Check your connection, then click here to retry.</div>
 
 <div id="pdf-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:999;align-items:center;justify-content:center;">
   <div style="background:#1e1e32;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:28px;width:100%;max-width:360px;">
@@ -736,7 +739,7 @@ html, body {
 </div>
 
 <script src="/assets/renderer.js?v=11"></script>
-<script src="/assets/volleyball-trainer.js?v=7"></script>
+<script src="/assets/volleyball-trainer.js?v=8"></script>
 <script src="/assets/html2canvas.min.js"></script>
 <script src="/assets/jspdf.umd.min.js"></script>
 <script>
@@ -2284,26 +2287,74 @@ document.getElementById('ep-delete').addEventListener('click', () => {
 const slug = location.pathname.split('/edit/')[1];
 let saveTimer = null;
 
+// Per-slide serialized snapshot of what the server last accepted. Lets saveSlides()
+// send only what actually changed: editing one slide (the overwhelmingly common case)
+// PATCHes just that slide's few KB instead of re-uploading the entire deck — which
+// matters a lot once photo slides (with embedded images) are in the deck. null until
+// the first load/full-save establishes a baseline.
+let savedSlideJson = null;
+function snapshotSlides() { return slides.map(s => JSON.stringify(s)); }
+
 function saveSlides() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     const el = document.getElementById('editor-saving') || document.createElement('div');
+    const errBanner = document.getElementById('save-error');
+    const curr = snapshotSlides();
+
+    // Diff against the last-saved state: no baseline or length change (add/delete/
+    // duplicate/reorder) → full save; exactly one slide changed → single-slide PATCH;
+    // several changed (e.g. a reorder that kept the same length) → full save;
+    // nothing changed → skip the network round-trip entirely.
+    let changed = [];
+    if (savedSlideJson && savedSlideJson.length === curr.length) {
+      for (let i = 0; i < curr.length; i++) if (curr[i] !== savedSlideJson[i]) changed.push(i);
+      if (changed.length === 0) return;
+    } else {
+      changed = null; // structural change — full save
+    }
+
     el.classList.add('show');
+    let failed = false;
     try {
-      const r = await fetch('/api/presentations/' + slug + '/slides', {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({slides})
-      });
-      const d = await r.json();
-      if (!d.ok) console.error('Save failed:', d);
+      let ok = false;
+      if (changed && changed.length === 1) {
+        const i = changed[0];
+        const r = await fetch('/api/presentations/' + slug + '/slides/' + i, {
+          method: 'PATCH',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ slide: slides[i] })
+        });
+        ok = r.ok && (await r.json()).ok;
+        // 409 = server rows out of sync with this editor (e.g. deck saved from
+        // another tab) — fall through to a full save rather than failing.
+      }
+      if (!ok) {
+        const r = await fetch('/api/presentations/' + slug + '/slides', {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({slides})
+        });
+        // A 413 (payload too large) returns an HTML error page, so r.json() throws;
+        // treat any non-ok status or parse failure as a failed save.
+        const d = r.ok ? await r.json() : { ok: false, status: r.status };
+        ok = !!d.ok;
+        if (!ok) console.error('Save failed:', d);
+      }
+      if (ok) savedSlideJson = curr;
+      else failed = true;
     } catch(e) {
+      failed = true;
       console.error('Save error:', e);
     } finally {
       setTimeout(() => el.classList.remove('show'), 1200);
+      // The banner stays up until a save actually succeeds — silent save failures
+      // previously meant you could edit for an hour and lose all of it.
+      errBanner.classList.toggle('show', failed);
     }
   }, 800);
 }
+document.getElementById('save-error').addEventListener('click', () => saveSlides());
 
 async function populateClipPicker(selectedUrl) {
   const sel = g('ep-vid-clip');
@@ -2410,6 +2461,10 @@ async function loadFromServer() {
     const meta = await mr.json();
     document.title = 'Edit: ' + meta.title + ' — Clinic';
     slides = serverSlides.length ? serverSlides : defaultSlides;
+    // Baseline for the diffing save — only when the deck actually came from the server.
+    // A fresh deck (defaults) has no server rows yet, so leaving this null forces the
+    // first save to be a full PUT, which then establishes the baseline.
+    savedSlideJson = serverSlides.length ? snapshotSlides() : null;
     showSlide(0);
     loadServerClipList();
   } catch(e) {

@@ -185,11 +185,19 @@ function renderResults(state) {
   document.getElementById('results-summary').textContent = total + (total === 1 ? ' vote total' : ' votes total');
 }
 
+let lastPollBody = null;
 async function poll() {
   try {
     const r = await fetch('/api/quizzes/' + slug + '/live?voterId=' + encodeURIComponent(voterId));
     if (!r.ok) return;
-    const state = await r.json();
+    const body = await r.text();
+    // Identical response = nothing to redraw. Without this, the option buttons were
+    // torn down and rebuilt every 1.5s — so a tap landing during a rebuild could
+    // miss the button entirely. (Any real change — new question, a cast vote echoed
+    // back, results revealed — alters the payload and still re-renders.)
+    if (body === lastPollBody) return;
+    lastPollBody = body;
+    const state = JSON.parse(body);
     document.getElementById('quiz-title').textContent = state.title || '';
 
     if (!state.live) {

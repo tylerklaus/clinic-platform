@@ -112,6 +112,15 @@ db.exec(`
     UNIQUE(question_id, voter_id),
     FOREIGN KEY (question_id) REFERENCES quiz_questions(id) ON DELETE CASCADE
   );
+
+  -- Without these, every "slides for presentation X" / "questions for quiz X" query
+  -- is a full table scan across ALL presentations/quizzes. Slides rows can be large
+  -- (photo slides embed the image in the data JSON), so scanning every row to serve
+  -- one deck gets expensive fast; quiz_questions is scanned ~once per poll tick per
+  -- connected client during a live quiz. quiz_votes already has an index via its
+  -- UNIQUE(question_id, voter_id) constraint.
+  CREATE INDEX IF NOT EXISTS idx_slides_presentation ON slides(presentation_id, position);
+  CREATE INDEX IF NOT EXISTS idx_quiz_questions_quiz ON quiz_questions(quiz_id, position);
 `);
 
 // Schema migration: add Bunny Stream columns to an existing `videos` table without
@@ -136,18 +145,43 @@ ensureColumn('quiz_questions', 'video_url', 'video_url TEXT');
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use(session({
-  secret: process.env.SESSION_SECRET || randomBytes(32).toString('hex'),
-  store: new FileStore({ path: '/opt/clinic-platform/data/sessions', ttl: 86400, retries: 0 }),
-  resave: false,
-  saveUninitialized: true,
-  cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 86400000 * 7 }
-}));
 
 // Video storage
 const VIDEO_DIR = process.env.VIDEO_DIR || join(__dirname, 'videos');
 mkdirSync(join(VIDEO_DIR, 'shared'), { recursive: true });
 mkdirSync(join(VIDEO_DIR, 'presentations'), { recursive: true });
+
+// Static assets and raw video streaming are registered BEFORE the session middleware —
+// neither needs a session, and putting them after it means a session-store disk read
+// on every asset request and every video byte-range chunk. maxAge is safe because the
+// app's own script references are cache-busted with ?v=N (and the un-versioned files
+// here are vendored libraries that never change in place).
+app.use('/assets', express.static(join(__dirname, 'public', 'assets'), { maxAge: '1d' }));
+
+app.get('/videos/:scope/:filename', (req, res) => {
+  const { scope, filename } = req.params;
+  const filePath = join(VIDEO_DIR, scope === 'shared' ? 'shared' : `presentations/${scope}`, filename);
+  if (!existsSync(filePath)) return res.status(404).send('Not found');
+  res.sendFile(filePath);
+});
+
+app.get('/videos/p/:slug/:filename', (req, res) => {
+  const filePath = join(VIDEO_DIR, 'presentations', req.params.slug, req.params.filename);
+  if (!existsSync(filePath)) return res.status(404).send('Not found');
+  res.sendFile(filePath);
+});
+
+app.use(session({
+  secret: process.env.SESSION_SECRET || randomBytes(32).toString('hex'),
+  store: new FileStore({ path: '/opt/clinic-platform/data/sessions', ttl: 86400, retries: 0 }),
+  resave: false,
+  // false: only persist a session once something is actually stored in it (login's
+  // oauthState, a password unlock, etc.). With true, every anonymous request — every
+  // quiz voter poll, every bot hit — wrote a session file to disk for nothing, and
+  // those files pile up in the store directory forever.
+  saveUninitialized: false,
+  cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 86400000 * 7 }
+}));
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -343,16 +377,39 @@ app.put('/api/presentations/:slug/slides', requireEditor, (req, res) => {
   const slides = req.body.slides;
   const saveSlides = db.transaction((slides) => {
     db.prepare('DELETE FROM slides WHERE presentation_id=?').run(p.id);
+    const insert = db.prepare(`
+      INSERT INTO slides (presentation_id, position, type, title, data)
+      VALUES (?, ?, ?, ?, ?)
+    `);
     for (let i = 0; i < slides.length; i++) {
       const s = slides[i];
-      db.prepare(`
-        INSERT INTO slides (presentation_id, position, type, title, data)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(p.id, i, s.type, s.title || '', JSON.stringify(s.data || {}));
+      insert.run(p.id, i, s.type, s.title || '', JSON.stringify(s.data || {}));
     }
     db.prepare('UPDATE presentations SET updated_at=unixepoch() WHERE id=?').run(p.id);
   });
   saveSlides(slides);
+  res.json({ ok: true });
+});
+
+// Update ONE slide in place, addressed by its position index. The editor uses this for
+// the overwhelmingly common case — editing fields on a single slide — so a text tweak
+// uploads a few KB instead of re-sending the whole deck (which can be megabytes once
+// photo slides are involved). Structural changes (add/delete/duplicate/reorder) still
+// go through the whole-array PUT above. 409 when the index doesn't match a stored row
+// (deck out of sync — e.g. saved from another tab); the editor falls back to a full PUT.
+app.patch('/api/presentations/:slug/slides/:index', requireEditor, (req, res) => {
+  const p = db.prepare('SELECT * FROM presentations WHERE slug=?').get(req.params.slug);
+  if (!p) return res.status(404).json({ error: 'Not found' });
+  const idx = parseInt(req.params.index, 10);
+  if (!Number.isInteger(idx) || idx < 0) return res.status(400).json({ error: 'Bad index' });
+  const s = req.body.slide;
+  if (!s || !s.type) return res.status(400).json({ error: 'Missing slide' });
+  const result = db.prepare(`
+    UPDATE slides SET type=?, title=?, data=?, updated_at=unixepoch()
+    WHERE presentation_id=? AND position=?
+  `).run(s.type, s.title || '', JSON.stringify(s.data || {}), p.id, idx);
+  if (result.changes === 0) return res.status(409).json({ error: 'No slide at that position — full save required' });
+  db.prepare('UPDATE presentations SET updated_at=unixepoch() WHERE id=?').run(p.id);
   res.json({ ok: true });
 });
 
@@ -432,21 +489,6 @@ app.post('/api/presentations/:slug/videos', requireEditor, upload.single('video'
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(req.file.filename, req.file.originalname, req.file.size, scope, scope === 'private' ? p.id : null, req.session.user?.id);
   res.json({ ok: true, id: result.lastInsertRowid, filename: req.file.filename, scope });
-});
-
-// Stream video
-app.get('/videos/:scope/:filename', (req, res) => {
-  const { scope, filename } = req.params;
-  const filePath = join(VIDEO_DIR, scope === 'shared' ? 'shared' : `presentations/${scope}`, filename);
-  if (!existsSync(filePath)) return res.status(404).send('Not found');
-  res.sendFile(filePath);
-});
-
-// Stream video by presentation slug
-app.get('/videos/p/:slug/:filename', (req, res) => {
-  const filePath = join(VIDEO_DIR, 'presentations', req.params.slug, req.params.filename);
-  if (!existsSync(filePath)) return res.status(404).send('Not found');
-  res.sendFile(filePath);
 });
 
 // Scan shared folder for unregistered videos
@@ -638,14 +680,15 @@ app.put('/api/quizzes/:slug/questions', requireEditor, (req, res) => {
   const questions = req.body.questions || [];
   const save = db.transaction((questions) => {
     db.prepare('DELETE FROM quiz_questions WHERE quiz_id=?').run(q.id);
+    const insert = db.prepare(`
+      INSERT INTO quiz_questions (quiz_id, position, question_text, options, correct_index, video_url)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
     for (let i = 0; i < questions.length; i++) {
       const qq = questions[i];
       const correctIndex = (qq.correct_index === null || qq.correct_index === undefined || qq.correct_index === '')
         ? null : qq.correct_index;
-      db.prepare(`
-        INSERT INTO quiz_questions (quiz_id, position, question_text, options, correct_index, video_url)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(q.id, i, qq.question_text || '', JSON.stringify(qq.options || []), correctIndex, qq.video_url || null);
+      insert.run(q.id, i, qq.question_text || '', JSON.stringify(qq.options || []), correctIndex, qq.video_url || null);
     }
     db.prepare('UPDATE quizzes SET updated_at=unixepoch(), current_question_id=NULL, results_revealed=0 WHERE id=?').run(q.id);
   });
@@ -833,7 +876,7 @@ app.get('/api/me', (req, res) => {
 });
 
 // ── STATIC + PAGE ROUTES ──────────────────────────────────────
-app.use('/assets', express.static(join(__dirname, 'public', 'assets')));
+// (/assets and /videos/* are registered above, before the session middleware.)
 
 // Landing page
 app.get('/', (req, res) => res.sendFile(join(__dirname, 'public', 'index.html')));

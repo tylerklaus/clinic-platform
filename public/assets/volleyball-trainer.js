@@ -765,7 +765,10 @@
           state.players[num].x = x; state.players[num].y = y;
           const p = ftToPx(x, y);
           g.setAttribute('transform', `translate(${p.x},${p.y})`);
-          renderLineupPanel();
+          // Note: no renderLineupPanel() here — dragging only changes x/y, never the
+          // slot's zone, and everything the lineup panel shows derives from zone/slot
+          // state. Rebuilding those 6 rows of inputs on every pointer-move made drags
+          // stutter on slower machines for zero visual difference.
           if (violationLayer) violationLayer.innerHTML = '';
 
           if (boundSelection !== null && state.players[boundSelection]) {

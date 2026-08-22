@@ -195,17 +195,28 @@ function render() {
 function scheduleSave() {
   const indicator = document.getElementById('save-indicator');
   indicator.textContent = 'Saving...';
+  indicator.style.color = '';
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
+    let failed = false;
     try {
-      await fetch('/api/quizzes/' + slug + '/questions', {
+      // Must check r.ok — a 403 (login session expired) previously showed "Saved"
+      // while saving nothing.
+      const r = await fetch('/api/quizzes/' + slug + '/questions', {
         method: 'PUT', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ questions })
       });
-      indicator.textContent = 'Saved';
-      setTimeout(() => { if (indicator.textContent === 'Saved') indicator.textContent = ''; }, 1500);
+      if (!r.ok) failed = true;
     } catch (e) {
-      indicator.textContent = 'Save failed';
+      failed = true;
+    }
+    if (failed) {
+      indicator.textContent = '⚠ Save FAILED — changes not saved (check login/connection, then edit again to retry)';
+      indicator.style.color = '#ff6b6b';
+    } else {
+      indicator.textContent = 'Saved';
+      indicator.style.color = '';
+      setTimeout(() => { if (indicator.textContent === 'Saved') indicator.textContent = ''; }, 1500);
     }
   }, 700);
 }

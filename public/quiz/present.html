@@ -259,11 +259,16 @@ function renderState(state) {
   }
 }
 
+let lastPollBody = null;
 async function poll() {
   try {
     const r = await fetch('/api/quizzes/' + slug + '/host-state');
-    const state = await r.json();
-    renderState(state);
+    const body = await r.text();
+    // Identical response = identical render — skip the full DOM rebuild that would
+    // otherwise happen every 1.5s poll tick even when nothing has changed.
+    if (body === lastPollBody) return;
+    lastPollBody = body;
+    renderState(JSON.parse(body));
   } catch (e) { /* transient network hiccup, next poll will retry */ }
 }
 
