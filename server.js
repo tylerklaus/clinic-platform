@@ -143,7 +143,11 @@ ensureColumn('quiz_questions', 'video_url', 'video_url TEXT');
 
 // ── MIDDLEWARE ────────────────────────────────────────────────
 app.set('trust proxy', 1);
-app.use(express.json({ limit: '10mb' }));
+// Slide data embeds images as base64 data URIs (title logos, rule-change/photo/bullets
+// photos) rather than uploading them separately, so a deck with many images can be tens
+// of MB in one save — this is an authenticated single-editor tool, not a public API, so
+// a generous limit here is fine.
+app.use(express.json({ limit: '75mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Video storage
