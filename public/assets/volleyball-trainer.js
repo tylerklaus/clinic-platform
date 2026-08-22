@@ -196,6 +196,17 @@
       const notify = typeof opts.onChange === 'function' ? opts.onChange : null;
 
       let state = normalizeState(data);
+      // Record each slot's initial front/back baseline right away, same as the
+      // reference tool's first resetPositions() call on page load — otherwise a sub
+      // typed in before the first Rotate/dropdown change would have no baseline to
+      // compare against, and would miss the very first row crossing that should hand
+      // them onto the court (only recording the baseline that time instead of
+      // detecting a change, so it'd take a second crossing to kick in).
+      for (let n = 1; n <= 6; n++) {
+        if (state.subRowBaseline[n] === null) {
+          state.subRowBaseline[n] = FRONT_ZONES.includes(state.players[n].zone);
+        }
+      }
       function emit() { if (notify) notify(cloneState(state)); }
 
       // ---- geometry: the whole widget is built at a fixed 960x540 "design canvas" and
@@ -231,7 +242,7 @@
 
       const rotateRow = div('vbt-row');
       const rotateBtn = document.createElement('button'); rotateBtn.className = 'vbt-btn'; rotateBtn.textContent = '↻ Rotate';
-      const resetBtn = document.createElement('button'); resetBtn.className = 'vbt-btn'; resetBtn.textContent = 'Reset Positions';
+      const resetBtn = document.createElement('button'); resetBtn.className = 'vbt-btn'; resetBtn.textContent = 'Base Positions';
       rotateRow.append(rotateBtn, resetBtn);
       controls.appendChild(rotateRow);
 
@@ -250,26 +261,16 @@
       const setterSelect = document.createElement('select'); setterSelect.className = 'vbt-select';
       controls.append(setterLabel, setterSelect);
 
-      const sizeLabel = document.createElement('label'); sizeLabel.className = 'vbt-label'; sizeLabel.textContent = 'Court size';
-      const sizeSelect = document.createElement('select'); sizeSelect.className = 'vbt-select';
-      [['compact', 'Compact'], ['standard', 'Standard'], ['large', 'Large'], ['xlarge', 'Extra Large']].forEach(([v, t]) => {
-        const o = document.createElement('option'); o.value = v; o.textContent = t;
-        sizeSelect.appendChild(o);
-      });
-      controls.append(sizeLabel, sizeSelect);
-
       const uniformRow = div('vbt-check-row');
       const uniformCheck = document.createElement('input'); uniformCheck.type = 'checkbox';
-      const uniformLbl = document.createElement('label'); uniformLbl.textContent = 'Same color for all (except Libero)';
+      const uniformLbl = document.createElement('label'); uniformLbl.textContent = 'Hide front/back row coloring';
       uniformRow.append(uniformCheck, uniformLbl);
-      const uniformHint = div('vbt-hint', ''); uniformHint.textContent = 'For advanced drills — hides the front/back row color cue so trainees rely on position, not color.';
+      const uniformHint = div('vbt-hint', ''); uniformHint.textContent = 'Challenges trainees to identify front vs. back row themselves, instead of reading it off player color.';
       controls.append(uniformRow, uniformHint);
 
       const checkBtn = document.createElement('button'); checkBtn.className = 'vbt-btn vbt-primary'; checkBtn.style.marginBottom = '6px';
       checkBtn.textContent = 'Check Overlaps';
-      const hideBtn = document.createElement('button'); hideBtn.className = 'vbt-btn';
-      hideBtn.textContent = 'Hide Lineup (memory test)';
-      controls.append(checkBtn, hideBtn);
+      controls.appendChild(checkBtn);
 
       const legend = div('vbt-legend');
       [
@@ -286,6 +287,17 @@
       boundHint.textContent = "Double-click any player to see who they're bound by (the overlap rule's adjacent left/right and front/back partners). Double-click them again, or double-click empty court, to clear.";
       controls.appendChild(boundHint);
 
+      // Court size — its own section at the bottom, set off with a divider.
+      const sizeSection = div('', 'margin-top:14px;padding-top:14px;border-top:2px solid #cbd5e1;');
+      const sizeLabel = document.createElement('label'); sizeLabel.className = 'vbt-label'; sizeLabel.textContent = 'Court size';
+      const sizeSelect = document.createElement('select'); sizeSelect.className = 'vbt-select';
+      [['compact', 'Compact'], ['standard', 'Standard'], ['large', 'Large'], ['xlarge', 'Extra Large']].forEach(([v, t]) => {
+        const o = document.createElement('option'); o.value = v; o.textContent = t;
+        sizeSelect.appendChild(o);
+      });
+      sizeSection.append(sizeLabel, sizeSelect);
+      controls.appendChild(sizeSection);
+
       // ── Court column ────────────────────────────────────────────
       const courtCard = div('vbt-court-card');
       const svg = svgEl('svg', {});
@@ -300,6 +312,10 @@
       lineupHeaderHint.textContent = '(click number or name to edit)';
       lineupHeader.appendChild(lineupHeaderHint);
       lineupPanel.appendChild(lineupHeader);
+      const hideBtn = document.createElement('button'); hideBtn.className = 'vbt-btn';
+      hideBtn.style.cssText = 'width:100%;margin-bottom:10px;';
+      hideBtn.textContent = 'Hide Lineup (memory test)';
+      lineupPanel.appendChild(hideBtn);
       const lineupList = document.createElement('ul'); lineupList.className = 'vbt-lineup-list';
       lineupPanel.appendChild(lineupList);
       const status = div('vbt-status idle', ''); status.textContent = 'Set a rotation, drag players, then check.';
